@@ -652,30 +652,31 @@ var ALLOC_STACK = 1;
 var UTF8Decoder = typeof TextDecoder !== "undefined" ? new TextDecoder("utf8") : undefined;
 
 function UTF8ArrayToString(heap, idx, maxBytesToRead) {
+ idx >>>= 0;
  var endIdx = idx + maxBytesToRead;
  var endPtr = idx;
- while (heap[endPtr] && !(endPtr >= endIdx)) ++endPtr;
+ while (heap[endPtr >>> 0] && !(endPtr >= endIdx)) ++endPtr;
  if (endPtr - idx > 16 && heap.subarray && UTF8Decoder) {
-  return UTF8Decoder.decode(heap.subarray(idx, endPtr));
+  return UTF8Decoder.decode(heap.subarray(idx >>> 0, endPtr >>> 0));
  } else {
   var str = "";
   while (idx < endPtr) {
-   var u0 = heap[idx++];
+   var u0 = heap[idx++ >>> 0];
    if (!(u0 & 128)) {
     str += String.fromCharCode(u0);
     continue;
    }
-   var u1 = heap[idx++] & 63;
+   var u1 = heap[idx++ >>> 0] & 63;
    if ((u0 & 224) == 192) {
     str += String.fromCharCode((u0 & 31) << 6 | u1);
     continue;
    }
-   var u2 = heap[idx++] & 63;
+   var u2 = heap[idx++ >>> 0] & 63;
    if ((u0 & 240) == 224) {
     u0 = (u0 & 15) << 12 | u1 << 6 | u2;
    } else {
     if ((u0 & 248) != 240) warnOnce("Invalid UTF-8 leading byte 0x" + u0.toString(16) + " encountered when deserializing a UTF-8 string in wasm memory to a JS string!");
-    u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heap[idx++] & 63;
+    u0 = (u0 & 7) << 18 | u1 << 12 | u2 << 6 | heap[idx++ >>> 0] & 63;
    }
    if (u0 < 65536) {
     str += String.fromCharCode(u0);
@@ -689,10 +690,12 @@ function UTF8ArrayToString(heap, idx, maxBytesToRead) {
 }
 
 function UTF8ToString(ptr, maxBytesToRead) {
+ ptr >>>= 0;
  return ptr ? UTF8ArrayToString(HEAPU8, ptr, maxBytesToRead) : "";
 }
 
 function stringToUTF8Array(str, heap, outIdx, maxBytesToWrite) {
+ outIdx >>>= 0;
  if (!(maxBytesToWrite > 0)) return 0;
  var startIdx = outIdx;
  var endIdx = outIdx + maxBytesToWrite - 1;
@@ -704,26 +707,26 @@ function stringToUTF8Array(str, heap, outIdx, maxBytesToWrite) {
   }
   if (u <= 127) {
    if (outIdx >= endIdx) break;
-   heap[outIdx++] = u;
+   heap[outIdx++ >>> 0] = u;
   } else if (u <= 2047) {
    if (outIdx + 1 >= endIdx) break;
-   heap[outIdx++] = 192 | u >> 6;
-   heap[outIdx++] = 128 | u & 63;
+   heap[outIdx++ >>> 0] = 192 | u >> 6;
+   heap[outIdx++ >>> 0] = 128 | u & 63;
   } else if (u <= 65535) {
    if (outIdx + 2 >= endIdx) break;
-   heap[outIdx++] = 224 | u >> 12;
-   heap[outIdx++] = 128 | u >> 6 & 63;
-   heap[outIdx++] = 128 | u & 63;
+   heap[outIdx++ >>> 0] = 224 | u >> 12;
+   heap[outIdx++ >>> 0] = 128 | u >> 6 & 63;
+   heap[outIdx++ >>> 0] = 128 | u & 63;
   } else {
    if (outIdx + 3 >= endIdx) break;
    if (u >= 2097152) warnOnce("Invalid Unicode code point 0x" + u.toString(16) + " encountered when serializing a JS string to a UTF-8 string in wasm memory! (Valid unicode code points should be in range 0-0x1FFFFF).");
-   heap[outIdx++] = 240 | u >> 18;
-   heap[outIdx++] = 128 | u >> 12 & 63;
-   heap[outIdx++] = 128 | u >> 6 & 63;
-   heap[outIdx++] = 128 | u & 63;
+   heap[outIdx++ >>> 0] = 240 | u >> 18;
+   heap[outIdx++ >>> 0] = 128 | u >> 12 & 63;
+   heap[outIdx++ >>> 0] = 128 | u >> 6 & 63;
+   heap[outIdx++ >>> 0] = 128 | u & 63;
   }
  }
- heap[outIdx] = 0;
+ heap[outIdx >>> 0] = 0;
  return outIdx - startIdx;
 }
 
@@ -763,23 +766,23 @@ function writeStringToMemory(string, buffer, dontAddNull) {
  var lastChar, end;
  if (dontAddNull) {
   end = buffer + lengthBytesUTF8(string);
-  lastChar = HEAP8[end];
+  lastChar = HEAP8[end >>> 0];
  }
  stringToUTF8(string, buffer, Infinity);
- if (dontAddNull) HEAP8[end] = lastChar;
+ if (dontAddNull) HEAP8[end >>> 0] = lastChar;
 }
 
 function writeArrayToMemory(array, buffer) {
  assert(array.length >= 0, "writeArrayToMemory array must have a length (should be an array or typed array)");
- HEAP8.set(array, buffer);
+ HEAP8.set(array, buffer >>> 0);
 }
 
 function writeAsciiToMemory(str, buffer, dontAddNull) {
  for (var i = 0; i < str.length; ++i) {
   assert(str.charCodeAt(i) === str.charCodeAt(i) & 255);
-  HEAP8[buffer++ >> 0] = str.charCodeAt(i);
+  HEAP8[buffer++ >>> 0] = str.charCodeAt(i);
  }
- if (!dontAddNull) HEAP8[buffer >> 0] = 0;
+ if (!dontAddNull) HEAP8[buffer >>> 0] = 0;
 }
 
 function alignUp(x, multiple) {
@@ -807,7 +810,7 @@ var TOTAL_STACK = 5242880;
 
 if (Module["TOTAL_STACK"]) assert(TOTAL_STACK === Module["TOTAL_STACK"], "the stack size can no longer be determined at runtime");
 
-var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 33554432;
+var INITIAL_MEMORY = Module["INITIAL_MEMORY"] || 67108864;
 
 if (!Object.getOwnPropertyDescriptor(Module, "INITIAL_MEMORY")) {
  Object.defineProperty(Module, "INITIAL_MEMORY", {
@@ -824,27 +827,27 @@ assert(typeof Int32Array !== "undefined" && typeof Float64Array !== "undefined" 
 
 assert(!Module["wasmMemory"], "Use of `wasmMemory` detected.  Use -s IMPORTED_MEMORY to define wasmMemory externally");
 
-assert(INITIAL_MEMORY == 33554432, "Detected runtime INITIAL_MEMORY setting.  Use -s IMPORTED_MEMORY to define wasmMemory dynamically");
+assert(INITIAL_MEMORY == 67108864, "Detected runtime INITIAL_MEMORY setting.  Use -s IMPORTED_MEMORY to define wasmMemory dynamically");
 
 var wasmTable;
 
 function writeStackCookie() {
  var max = _emscripten_stack_get_end();
  assert((max & 3) == 0);
- HEAPU32[(max >> 2) + 1] = 34821223;
- HEAPU32[(max >> 2) + 2] = 2310721022;
- HEAP32[0] = 1668509029;
+ HEAPU32[(max >> 2) + 1 >>> 0] = 34821223;
+ HEAPU32[(max >> 2) + 2 >>> 0] = 2310721022;
+ HEAP32[0 >>> 0] = 1668509029;
 }
 
 function checkStackCookie() {
  if (ABORT) return;
  var max = _emscripten_stack_get_end();
- var cookie1 = HEAPU32[(max >> 2) + 1];
- var cookie2 = HEAPU32[(max >> 2) + 2];
+ var cookie1 = HEAPU32[(max >> 2) + 1 >>> 0];
+ var cookie2 = HEAPU32[(max >> 2) + 2 >>> 0];
  if (cookie1 != 34821223 || cookie2 != 2310721022) {
   abort("Stack overflow! Stack cookie has been overwritten, expected hex dwords 0x89BACDFE and 0x2135467, but received 0x" + cookie2.toString(16) + " " + cookie1.toString(16));
  }
- if (HEAP32[0] !== 1668509029) abort("Runtime error: The application has corrupted its heap memory area (address zero)!");
+ if (HEAP32[0 >>> 0] !== 1668509029) abort("Runtime error: The application has corrupted its heap memory area (address zero)!");
 }
 
 (function() {
@@ -1228,7 +1231,7 @@ function demangle(func) {
   stringToUTF8(s, buf, len);
   var status = stackAlloc(4);
   var ret = __cxa_demangle_func(buf, 0, 0, status);
-  if (HEAP32[status >> 2] === 0 && ret) {
+  if (HEAP32[status >>> 2] === 0 && ret) {
    return UTF8ToString(ret);
   }
  } catch (e) {} finally {
@@ -1475,7 +1478,7 @@ function _JS_Accelerometer_Stop() {
 
 function _JS_Cursor_SetImage(ptr, length) {
  var binary = "";
- for (var i = 0; i < length; i++) binary += String.fromCharCode(HEAPU8[ptr + i]);
+ for (var i = 0; i < length; i++) binary += String.fromCharCode(HEAPU8[ptr + i >>> 0]);
  Module.canvas.style.cursor = "url(data:image/cur;base64," + btoa(binary) + "),default";
 }
 
@@ -1487,8 +1490,8 @@ function _JS_DOM_MapViewportCoordinateToElementLocalCoordinate(viewportX, viewpo
  var canvasSelector = "#" + (Module["canvas"] ? Module["canvas"].id : "unity-canvas");
  var canvas = document.querySelector(canvasSelector);
  var rect = canvas.getBoundingClientRect();
- HEAPU32[targetX >> 2] = viewportX - rect.left;
- HEAPU32[targetY >> 2] = viewportY - rect.top;
+ HEAPU32[targetX >>> 2] = viewportX - rect.left;
+ HEAPU32[targetY >>> 2] = viewportY - rect.top;
 }
 
 function stringToNewUTF8(jsString) {
@@ -1812,12 +1815,12 @@ function _JS_MobileKeyboard_GetText(buffer, bufferSize) {
 
 function _JS_MobileKeyboard_GetTextSelection(outStart, outLength) {
  if (!mobile_input) {
-  HEAP32[outStart >> 2] = 0;
-  HEAP32[outLength >> 2] = 0;
+  HEAP32[outStart >>> 2] = 0;
+  HEAP32[outLength >>> 2] = 0;
   return;
  }
- HEAP32[outStart >> 2] = mobile_input.input.selectionStart;
- HEAP32[outLength >> 2] = mobile_input.input.selectionEnd - mobile_input.input.selectionStart;
+ HEAP32[outStart >>> 2] = mobile_input.input.selectionStart;
+ HEAP32[outLength >>> 2] = mobile_input.input.selectionEnd - mobile_input.input.selectionStart;
 }
 
 function _JS_MobileKeyboard_Hide(delay) {
@@ -2439,7 +2442,7 @@ function _JS_Sound_Load_PCM(channels, length, sampleRate, ptr) {
    var clipped = source.subarray(0, Math.min(source.length, this.length - (startInChannel | 0)));
    this.getChannelData(channelNumber | 0).set(clipped, startInChannel | 0);
   };
-  copyToChannel.apply(buffer, [ HEAPF32.subarray(offs, offs + length), i, 0 ]);
+  copyToChannel.apply(buffer, [ HEAPF32.subarray(offs >>> 0, offs + length >>> 0), i, 0 ]);
  }
  WEBAudio.audioInstances[++WEBAudio.audioInstanceIdCounter] = sound;
  return WEBAudio.audioInstanceIdCounter;
@@ -2608,8 +2611,8 @@ function _JS_SystemInfo_GetCanvasClientSize(domElementSelector, outWidth, outHei
   w = size.width;
   h = size.height;
  }
- HEAPF64[outWidth >> 3] = w;
- HEAPF64[outHeight >> 3] = h;
+ HEAPF64[outWidth >>> 3] = w;
+ HEAPF64[outHeight >>> 3] = h;
 }
 
 function _JS_SystemInfo_GetDocumentURL(buffer, bufferSize) {
@@ -2642,8 +2645,8 @@ function _JS_SystemInfo_GetPreferredDevicePixelRatio() {
 }
 
 function _JS_SystemInfo_GetScreenSize(outWidth, outHeight) {
- HEAPF64[outWidth >> 3] = Module.SystemInfo.width;
- HEAPF64[outHeight >> 3] = Module.SystemInfo.height;
+ HEAPF64[outWidth >>> 3] = Module.SystemInfo.width;
+ HEAPF64[outHeight >>> 3] = Module.SystemInfo.height;
 }
 
 function _JS_SystemInfo_GetStreamingAssetsURL(buffer, bufferSize) {
@@ -2751,7 +2754,7 @@ function _JS_WebRequest_Send(requestId, ptr, length, arg, onresponse, onprogress
   var kWebRequestOK = 0;
   if (body.length != 0) {
    var buffer = _malloc(body.length);
-   HEAPU8.set(body, buffer);
+   HEAPU8.set(body, buffer >>> 0);
    dynCall("viiiiii", onresponse, [ arg, response.status, buffer, body.length, 0, kWebRequestOK ]);
   } else {
    dynCall("viiiiii", onresponse, [ arg, response.status, 0, 0, 0, kWebRequestOK ]);
@@ -2776,7 +2779,7 @@ function _JS_WebRequest_Send(requestId, ptr, length, arg, onresponse, onprogress
  }
  try {
   if (length > 0) {
-   var postData = HEAPU8.subarray(ptr, ptr + length);
+   var postData = HEAPU8.subarray(ptr >>> 0, ptr + length >>> 0);
    requestOptions.init.body = new Blob([ postData ]);
   }
   if (requestOptions.timeout) {
@@ -2914,7 +2917,7 @@ function _SocketRecv(socketInstance, ptr, length) {
  var socket = webSocketInstances[socketInstance];
  if (socket.messages.length == 0) return 0;
  if (socket.messages[0].length > length) return 0;
- HEAPU8.set(socket.messages[0], ptr);
+ HEAPU8.set(socket.messages[0], ptr >>> 0);
  socket.messages = socket.messages.slice(1);
 }
 
@@ -2957,33 +2960,33 @@ function ExceptionInfo(excPtr) {
  this.excPtr = excPtr;
  this.ptr = excPtr - ExceptionInfoAttrs.SIZE;
  this.set_type = function(type) {
-  HEAP32[this.ptr + ExceptionInfoAttrs.TYPE_OFFSET >> 2] = type;
+  HEAP32[this.ptr + ExceptionInfoAttrs.TYPE_OFFSET >>> 2] = type;
  };
  this.get_type = function() {
-  return HEAP32[this.ptr + ExceptionInfoAttrs.TYPE_OFFSET >> 2];
+  return HEAP32[this.ptr + ExceptionInfoAttrs.TYPE_OFFSET >>> 2];
  };
  this.set_destructor = function(destructor) {
-  HEAP32[this.ptr + ExceptionInfoAttrs.DESTRUCTOR_OFFSET >> 2] = destructor;
+  HEAP32[this.ptr + ExceptionInfoAttrs.DESTRUCTOR_OFFSET >>> 2] = destructor;
  };
  this.get_destructor = function() {
-  return HEAP32[this.ptr + ExceptionInfoAttrs.DESTRUCTOR_OFFSET >> 2];
+  return HEAP32[this.ptr + ExceptionInfoAttrs.DESTRUCTOR_OFFSET >>> 2];
  };
  this.set_refcount = function(refcount) {
-  HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >> 2] = refcount;
+  HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >>> 2] = refcount;
  };
  this.set_caught = function(caught) {
   caught = caught ? 1 : 0;
-  HEAP8[this.ptr + ExceptionInfoAttrs.CAUGHT_OFFSET >> 0] = caught;
+  HEAP8[this.ptr + ExceptionInfoAttrs.CAUGHT_OFFSET >>> 0] = caught;
  };
  this.get_caught = function() {
-  return HEAP8[this.ptr + ExceptionInfoAttrs.CAUGHT_OFFSET >> 0] != 0;
+  return HEAP8[this.ptr + ExceptionInfoAttrs.CAUGHT_OFFSET >>> 0] != 0;
  };
  this.set_rethrown = function(rethrown) {
   rethrown = rethrown ? 1 : 0;
-  HEAP8[this.ptr + ExceptionInfoAttrs.RETHROWN_OFFSET >> 0] = rethrown;
+  HEAP8[this.ptr + ExceptionInfoAttrs.RETHROWN_OFFSET >>> 0] = rethrown;
  };
  this.get_rethrown = function() {
-  return HEAP8[this.ptr + ExceptionInfoAttrs.RETHROWN_OFFSET >> 0] != 0;
+  return HEAP8[this.ptr + ExceptionInfoAttrs.RETHROWN_OFFSET >>> 0] != 0;
  };
  this.init = function(type, destructor) {
   this.set_type(type);
@@ -2993,12 +2996,12 @@ function ExceptionInfo(excPtr) {
   this.set_rethrown(false);
  };
  this.add_ref = function() {
-  var value = HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >> 2];
-  HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >> 2] = value + 1;
+  var value = HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >>> 2];
+  HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >>> 2] = value + 1;
  };
  this.release_ref = function() {
-  var prev = HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >> 2];
-  HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >> 2] = prev - 1;
+  var prev = HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >>> 2];
+  HEAP32[this.ptr + ExceptionInfoAttrs.REFCOUNT_OFFSET >>> 2] = prev - 1;
   assert(prev > 0);
   return prev === 1;
  };
@@ -3010,23 +3013,23 @@ function CatchInfo(ptr) {
   this.ptr = 0;
  };
  this.set_base_ptr = function(basePtr) {
-  HEAP32[this.ptr >> 2] = basePtr;
+  HEAP32[this.ptr >>> 2] = basePtr;
  };
  this.get_base_ptr = function() {
-  return HEAP32[this.ptr >> 2];
+  return HEAP32[this.ptr >>> 2];
  };
  this.set_adjusted_ptr = function(adjustedPtr) {
   var ptrSize = 4;
-  HEAP32[this.ptr + ptrSize >> 2] = adjustedPtr;
+  HEAP32[this.ptr + ptrSize >>> 2] = adjustedPtr;
  };
  this.get_adjusted_ptr = function() {
   var ptrSize = 4;
-  return HEAP32[this.ptr + ptrSize >> 2];
+  return HEAP32[this.ptr + ptrSize >>> 2];
  };
  this.get_exception_ptr = function() {
   var isPointer = ___cxa_is_pointer_type(this.get_exception_info().get_type());
   if (isPointer) {
-   return HEAP32[this.get_base_ptr() >> 2];
+   return HEAP32[this.get_base_ptr() >>> 2];
   }
   var adjusted = this.get_adjusted_ptr();
   if (adjusted !== 0) return adjusted;
@@ -3122,14 +3125,14 @@ function ___cxa_find_matching_catch_2() {
  var typeArray = Array.prototype.slice.call(arguments);
  var stackTop = stackSave();
  var exceptionThrowBuf = stackAlloc(4);
- HEAP32[exceptionThrowBuf >> 2] = thrown;
+ HEAP32[exceptionThrowBuf >>> 2] = thrown;
  for (var i = 0; i < typeArray.length; i++) {
   var caughtType = typeArray[i];
   if (caughtType === 0 || caughtType === thrownType) {
    break;
   }
   if (___cxa_can_catch(caughtType, thrownType, exceptionThrowBuf)) {
-   var adjusted = HEAP32[exceptionThrowBuf >> 2];
+   var adjusted = HEAP32[exceptionThrowBuf >>> 2];
    if (thrown !== adjusted) {
     catchInfo.set_adjusted_ptr(adjusted);
    }
@@ -3159,14 +3162,14 @@ function ___cxa_find_matching_catch_3() {
  var typeArray = Array.prototype.slice.call(arguments);
  var stackTop = stackSave();
  var exceptionThrowBuf = stackAlloc(4);
- HEAP32[exceptionThrowBuf >> 2] = thrown;
+ HEAP32[exceptionThrowBuf >>> 2] = thrown;
  for (var i = 0; i < typeArray.length; i++) {
   var caughtType = typeArray[i];
   if (caughtType === 0 || caughtType === thrownType) {
    break;
   }
   if (___cxa_can_catch(caughtType, thrownType, exceptionThrowBuf)) {
-   var adjusted = HEAP32[exceptionThrowBuf >> 2];
+   var adjusted = HEAP32[exceptionThrowBuf >>> 2];
    if (thrown !== adjusted) {
     catchInfo.set_adjusted_ptr(adjusted);
    }
@@ -3196,14 +3199,14 @@ function ___cxa_find_matching_catch_4() {
  var typeArray = Array.prototype.slice.call(arguments);
  var stackTop = stackSave();
  var exceptionThrowBuf = stackAlloc(4);
- HEAP32[exceptionThrowBuf >> 2] = thrown;
+ HEAP32[exceptionThrowBuf >>> 2] = thrown;
  for (var i = 0; i < typeArray.length; i++) {
   var caughtType = typeArray[i];
   if (caughtType === 0 || caughtType === thrownType) {
    break;
   }
   if (___cxa_can_catch(caughtType, thrownType, exceptionThrowBuf)) {
-   var adjusted = HEAP32[exceptionThrowBuf >> 2];
+   var adjusted = HEAP32[exceptionThrowBuf >>> 2];
    if (thrown !== adjusted) {
     catchInfo.set_adjusted_ptr(adjusted);
    }
@@ -3244,21 +3247,21 @@ function ___cxa_throw(ptr, type, destructor) {
 }
 
 function _gmtime_r(time, tmPtr) {
- var date = new Date(HEAP32[time >> 2] * 1e3);
- HEAP32[tmPtr >> 2] = date.getUTCSeconds();
- HEAP32[tmPtr + 4 >> 2] = date.getUTCMinutes();
- HEAP32[tmPtr + 8 >> 2] = date.getUTCHours();
- HEAP32[tmPtr + 12 >> 2] = date.getUTCDate();
- HEAP32[tmPtr + 16 >> 2] = date.getUTCMonth();
- HEAP32[tmPtr + 20 >> 2] = date.getUTCFullYear() - 1900;
- HEAP32[tmPtr + 24 >> 2] = date.getUTCDay();
- HEAP32[tmPtr + 36 >> 2] = 0;
- HEAP32[tmPtr + 32 >> 2] = 0;
+ var date = new Date(HEAP32[time >>> 2] * 1e3);
+ HEAP32[tmPtr >>> 2] = date.getUTCSeconds();
+ HEAP32[tmPtr + 4 >>> 2] = date.getUTCMinutes();
+ HEAP32[tmPtr + 8 >>> 2] = date.getUTCHours();
+ HEAP32[tmPtr + 12 >>> 2] = date.getUTCDate();
+ HEAP32[tmPtr + 16 >>> 2] = date.getUTCMonth();
+ HEAP32[tmPtr + 20 >>> 2] = date.getUTCFullYear() - 1900;
+ HEAP32[tmPtr + 24 >>> 2] = date.getUTCDay();
+ HEAP32[tmPtr + 36 >>> 2] = 0;
+ HEAP32[tmPtr + 32 >>> 2] = 0;
  var start = Date.UTC(date.getUTCFullYear(), 0, 1, 0, 0, 0, 0);
  var yday = (date.getTime() - start) / (1e3 * 60 * 60 * 24) | 0;
- HEAP32[tmPtr + 28 >> 2] = yday;
+ HEAP32[tmPtr + 28 >>> 2] = yday;
  if (!_gmtime_r.GMTString) _gmtime_r.GMTString = allocateUTF8("GMT");
- HEAP32[tmPtr + 40 >> 2] = _gmtime_r.GMTString;
+ HEAP32[tmPtr + 40 >>> 2] = _gmtime_r.GMTString;
  return tmPtr;
 }
 
@@ -3275,8 +3278,8 @@ function _tzset() {
  var winterOffset = winter.getTimezoneOffset();
  var summerOffset = summer.getTimezoneOffset();
  var stdTimezoneOffset = Math.max(winterOffset, summerOffset);
- HEAP32[__get_timezone() >> 2] = stdTimezoneOffset * 60;
- HEAP32[__get_daylight() >> 2] = Number(winterOffset != summerOffset);
+ HEAP32[__get_timezone() >>> 2] = stdTimezoneOffset * 60;
+ HEAP32[__get_daylight() >>> 2] = Number(winterOffset != summerOffset);
  function extractZone(date) {
   var match = date.toTimeString().match(/\(([A-Za-z ]+)\)$/);
   return match ? match[1] : "GMT";
@@ -3286,34 +3289,34 @@ function _tzset() {
  var winterNamePtr = allocateUTF8(winterName);
  var summerNamePtr = allocateUTF8(summerName);
  if (summerOffset < winterOffset) {
-  HEAP32[__get_tzname() >> 2] = winterNamePtr;
-  HEAP32[__get_tzname() + 4 >> 2] = summerNamePtr;
+  HEAP32[__get_tzname() >>> 2] = winterNamePtr;
+  HEAP32[__get_tzname() + 4 >>> 2] = summerNamePtr;
  } else {
-  HEAP32[__get_tzname() >> 2] = summerNamePtr;
-  HEAP32[__get_tzname() + 4 >> 2] = winterNamePtr;
+  HEAP32[__get_tzname() >>> 2] = summerNamePtr;
+  HEAP32[__get_tzname() + 4 >>> 2] = winterNamePtr;
  }
 }
 
 function _localtime_r(time, tmPtr) {
  _tzset();
- var date = new Date(HEAP32[time >> 2] * 1e3);
- HEAP32[tmPtr >> 2] = date.getSeconds();
- HEAP32[tmPtr + 4 >> 2] = date.getMinutes();
- HEAP32[tmPtr + 8 >> 2] = date.getHours();
- HEAP32[tmPtr + 12 >> 2] = date.getDate();
- HEAP32[tmPtr + 16 >> 2] = date.getMonth();
- HEAP32[tmPtr + 20 >> 2] = date.getFullYear() - 1900;
- HEAP32[tmPtr + 24 >> 2] = date.getDay();
+ var date = new Date(HEAP32[time >>> 2] * 1e3);
+ HEAP32[tmPtr >>> 2] = date.getSeconds();
+ HEAP32[tmPtr + 4 >>> 2] = date.getMinutes();
+ HEAP32[tmPtr + 8 >>> 2] = date.getHours();
+ HEAP32[tmPtr + 12 >>> 2] = date.getDate();
+ HEAP32[tmPtr + 16 >>> 2] = date.getMonth();
+ HEAP32[tmPtr + 20 >>> 2] = date.getFullYear() - 1900;
+ HEAP32[tmPtr + 24 >>> 2] = date.getDay();
  var start = new Date(date.getFullYear(), 0, 1);
  var yday = (date.getTime() - start.getTime()) / (1e3 * 60 * 60 * 24) | 0;
- HEAP32[tmPtr + 28 >> 2] = yday;
- HEAP32[tmPtr + 36 >> 2] = -(date.getTimezoneOffset() * 60);
+ HEAP32[tmPtr + 28 >>> 2] = yday;
+ HEAP32[tmPtr + 36 >>> 2] = -(date.getTimezoneOffset() * 60);
  var summerOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
  var winterOffset = start.getTimezoneOffset();
  var dst = (summerOffset != winterOffset && date.getTimezoneOffset() == Math.min(winterOffset, summerOffset)) | 0;
- HEAP32[tmPtr + 32 >> 2] = dst;
- var zonePtr = HEAP32[__get_tzname() + (dst ? 4 : 0) >> 2];
- HEAP32[tmPtr + 40 >> 2] = zonePtr;
+ HEAP32[tmPtr + 32 >>> 2] = dst;
+ var zonePtr = HEAP32[__get_tzname() + (dst ? 4 : 0) >>> 2];
+ HEAP32[tmPtr + 40 >>> 2] = zonePtr;
  return tmPtr;
 }
 
@@ -3602,7 +3605,7 @@ var TTY = {
 function mmapAlloc(size) {
  var alignedSize = alignMemory(size, 65536);
  var ptr = _malloc(alignedSize);
- while (size < alignedSize) HEAP8[ptr + size++] = 0;
+ while (size < alignedSize) HEAP8[ptr + size++ >>> 0] = 0;
  return ptr;
 }
 
@@ -3694,6 +3697,7 @@ var MEMFS = {
   return new Uint8Array(node.contents);
  },
  expandFileStorage: function(node, newCapacity) {
+  newCapacity >>>= 0;
   var prevCapacity = node.contents ? node.contents.length : 0;
   if (prevCapacity >= newCapacity) return;
   var CAPACITY_DOUBLING_MAX = 1024 * 1024;
@@ -3704,6 +3708,7 @@ var MEMFS = {
   if (node.usedBytes > 0) node.contents.set(oldContents.subarray(0, node.usedBytes), 0);
  },
  resizeFileStorage: function(node, newSize) {
+  newSize >>>= 0;
   if (node.usedBytes == newSize) return;
   if (newSize == 0) {
    node.contents = null;
@@ -3904,7 +3909,8 @@ var MEMFS = {
     if (!ptr) {
      throw new FS.ErrnoError(48);
     }
-    HEAP8.set(contents, ptr);
+    ptr >>>= 0;
+    HEAP8.set(contents, ptr >>> 0);
    }
    return {
     ptr: ptr,
@@ -5374,6 +5380,7 @@ var FS = {
   return stream.position;
  },
  read: function(stream, buffer, offset, length, position) {
+  offset >>>= 0;
   if (length < 0 || position < 0) {
    throw new FS.ErrnoError(28);
   }
@@ -5400,6 +5407,7 @@ var FS = {
   return bytesRead;
  },
  write: function(stream, buffer, offset, length, position, canOwn) {
+  offset >>>= 0;
   if (length < 0 || position < 0) {
    throw new FS.ErrnoError(28);
   }
@@ -5452,6 +5460,7 @@ var FS = {
   stream.stream_ops.allocate(stream, offset, length);
  },
  mmap: function(stream, address, length, position, prot, flags) {
+  address >>>= 0;
   if ((prot & 2) !== 0 && (flags & 2) === 0 && (stream.flags & 2097155) !== 2) {
    throw new FS.ErrnoError(2);
   }
@@ -5464,6 +5473,7 @@ var FS = {
   return stream.stream_ops.mmap(stream, address, length, position, prot, flags);
  },
  msync: function(stream, buffer, offset, length, mmapFlags) {
+  offset >>>= 0;
   if (!stream || !stream.stream_ops.msync) {
    return 0;
   }
@@ -6147,27 +6157,27 @@ var SYSCALLS = {
    }
    throw e;
   }
-  HEAP32[buf >> 2] = stat.dev;
-  HEAP32[buf + 4 >> 2] = 0;
-  HEAP32[buf + 8 >> 2] = stat.ino;
-  HEAP32[buf + 12 >> 2] = stat.mode;
-  HEAP32[buf + 16 >> 2] = stat.nlink;
-  HEAP32[buf + 20 >> 2] = stat.uid;
-  HEAP32[buf + 24 >> 2] = stat.gid;
-  HEAP32[buf + 28 >> 2] = stat.rdev;
-  HEAP32[buf + 32 >> 2] = 0;
+  HEAP32[buf >>> 2] = stat.dev;
+  HEAP32[buf + 4 >>> 2] = 0;
+  HEAP32[buf + 8 >>> 2] = stat.ino;
+  HEAP32[buf + 12 >>> 2] = stat.mode;
+  HEAP32[buf + 16 >>> 2] = stat.nlink;
+  HEAP32[buf + 20 >>> 2] = stat.uid;
+  HEAP32[buf + 24 >>> 2] = stat.gid;
+  HEAP32[buf + 28 >>> 2] = stat.rdev;
+  HEAP32[buf + 32 >>> 2] = 0;
   tempI64 = [ stat.size >>> 0, (tempDouble = stat.size, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (Math.min(+Math.floor(tempDouble / 4294967296), 4294967295) | 0) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0) ], 
-  HEAP32[buf + 40 >> 2] = tempI64[0], HEAP32[buf + 44 >> 2] = tempI64[1];
-  HEAP32[buf + 48 >> 2] = 4096;
-  HEAP32[buf + 52 >> 2] = stat.blocks;
-  HEAP32[buf + 56 >> 2] = stat.atime.getTime() / 1e3 | 0;
-  HEAP32[buf + 60 >> 2] = 0;
-  HEAP32[buf + 64 >> 2] = stat.mtime.getTime() / 1e3 | 0;
-  HEAP32[buf + 68 >> 2] = 0;
-  HEAP32[buf + 72 >> 2] = stat.ctime.getTime() / 1e3 | 0;
-  HEAP32[buf + 76 >> 2] = 0;
+  HEAP32[buf + 40 >>> 2] = tempI64[0], HEAP32[buf + 44 >>> 2] = tempI64[1];
+  HEAP32[buf + 48 >>> 2] = 4096;
+  HEAP32[buf + 52 >>> 2] = stat.blocks;
+  HEAP32[buf + 56 >>> 2] = stat.atime.getTime() / 1e3 | 0;
+  HEAP32[buf + 60 >>> 2] = 0;
+  HEAP32[buf + 64 >>> 2] = stat.mtime.getTime() / 1e3 | 0;
+  HEAP32[buf + 68 >>> 2] = 0;
+  HEAP32[buf + 72 >>> 2] = stat.ctime.getTime() / 1e3 | 0;
+  HEAP32[buf + 76 >>> 2] = 0;
   tempI64 = [ stat.ino >>> 0, (tempDouble = stat.ino, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (Math.min(+Math.floor(tempDouble / 4294967296), 4294967295) | 0) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0) ], 
-  HEAP32[buf + 80 >> 2] = tempI64[0], HEAP32[buf + 84 >> 2] = tempI64[1];
+  HEAP32[buf + 80 >>> 2] = tempI64[0], HEAP32[buf + 84 >>> 2] = tempI64[1];
   return 0;
  },
  doMsync: function(addr, stream, len, flags, offset) {
@@ -6199,9 +6209,9 @@ var SYSCALLS = {
   if (bufsize <= 0) return -28;
   var ret = FS.readlink(path);
   var len = Math.min(bufsize, lengthBytesUTF8(ret));
-  var endChar = HEAP8[buf + len];
+  var endChar = HEAP8[buf + len >>> 0];
   stringToUTF8(ret, buf, bufsize + 1);
-  HEAP8[buf + len] = endChar;
+  HEAP8[buf + len >>> 0] = endChar;
   return len;
  },
  doAccess: function(path, amode) {
@@ -6233,8 +6243,8 @@ var SYSCALLS = {
  doReadv: function(stream, iov, iovcnt, offset) {
   var ret = 0;
   for (var i = 0; i < iovcnt; i++) {
-   var ptr = HEAP32[iov + i * 8 >> 2];
-   var len = HEAP32[iov + (i * 8 + 4) >> 2];
+   var ptr = HEAP32[iov + i * 8 >>> 2];
+   var len = HEAP32[iov + (i * 8 + 4) >>> 2];
    var curr = FS.read(stream, HEAP8, ptr, len, offset);
    if (curr < 0) return -1;
    ret += curr;
@@ -6245,8 +6255,8 @@ var SYSCALLS = {
  doWritev: function(stream, iov, iovcnt, offset) {
   var ret = 0;
   for (var i = 0; i < iovcnt; i++) {
-   var ptr = HEAP32[iov + i * 8 >> 2];
-   var len = HEAP32[iov + (i * 8 + 4) >> 2];
+   var ptr = HEAP32[iov + i * 8 >>> 2];
+   var len = HEAP32[iov + (i * 8 + 4) >>> 2];
    var curr = FS.write(stream, HEAP8, ptr, len, offset);
    if (curr < 0) return -1;
    ret += curr;
@@ -6257,7 +6267,7 @@ var SYSCALLS = {
  get: function() {
   assert(SYSCALLS.varargs != undefined);
   SYSCALLS.varargs += 4;
-  var ret = HEAP32[SYSCALLS.varargs - 4 >> 2];
+  var ret = HEAP32[SYSCALLS.varargs - 4 >>> 2];
   return ret;
  },
  getStr: function(ptr) {
@@ -6280,14 +6290,14 @@ function ___sys__newselect(nfds, readfds, writefds, exceptfds, timeout) {
   assert(nfds <= 64, "nfds must be less than or equal to 64");
   assert(!exceptfds, "exceptfds not supported");
   var total = 0;
-  var srcReadLow = readfds ? HEAP32[readfds >> 2] : 0, srcReadHigh = readfds ? HEAP32[readfds + 4 >> 2] : 0;
-  var srcWriteLow = writefds ? HEAP32[writefds >> 2] : 0, srcWriteHigh = writefds ? HEAP32[writefds + 4 >> 2] : 0;
-  var srcExceptLow = exceptfds ? HEAP32[exceptfds >> 2] : 0, srcExceptHigh = exceptfds ? HEAP32[exceptfds + 4 >> 2] : 0;
+  var srcReadLow = readfds ? HEAP32[readfds >>> 2] : 0, srcReadHigh = readfds ? HEAP32[readfds + 4 >>> 2] : 0;
+  var srcWriteLow = writefds ? HEAP32[writefds >>> 2] : 0, srcWriteHigh = writefds ? HEAP32[writefds + 4 >>> 2] : 0;
+  var srcExceptLow = exceptfds ? HEAP32[exceptfds >>> 2] : 0, srcExceptHigh = exceptfds ? HEAP32[exceptfds + 4 >>> 2] : 0;
   var dstReadLow = 0, dstReadHigh = 0;
   var dstWriteLow = 0, dstWriteHigh = 0;
   var dstExceptLow = 0, dstExceptHigh = 0;
-  var allLow = (readfds ? HEAP32[readfds >> 2] : 0) | (writefds ? HEAP32[writefds >> 2] : 0) | (exceptfds ? HEAP32[exceptfds >> 2] : 0);
-  var allHigh = (readfds ? HEAP32[readfds + 4 >> 2] : 0) | (writefds ? HEAP32[writefds + 4 >> 2] : 0) | (exceptfds ? HEAP32[exceptfds + 4 >> 2] : 0);
+  var allLow = (readfds ? HEAP32[readfds >>> 2] : 0) | (writefds ? HEAP32[writefds >>> 2] : 0) | (exceptfds ? HEAP32[exceptfds >>> 2] : 0);
+  var allHigh = (readfds ? HEAP32[readfds + 4 >>> 2] : 0) | (writefds ? HEAP32[writefds + 4 >>> 2] : 0) | (exceptfds ? HEAP32[exceptfds + 4 >>> 2] : 0);
   var check = function(fd, low, high, val) {
    return fd < 32 ? low & val : high & val;
   };
@@ -6316,16 +6326,16 @@ function ___sys__newselect(nfds, readfds, writefds, exceptfds, timeout) {
    }
   }
   if (readfds) {
-   HEAP32[readfds >> 2] = dstReadLow;
-   HEAP32[readfds + 4 >> 2] = dstReadHigh;
+   HEAP32[readfds >>> 2] = dstReadLow;
+   HEAP32[readfds + 4 >>> 2] = dstReadHigh;
   }
   if (writefds) {
-   HEAP32[writefds >> 2] = dstWriteLow;
-   HEAP32[writefds + 4 >> 2] = dstWriteHigh;
+   HEAP32[writefds >>> 2] = dstWriteLow;
+   HEAP32[writefds + 4 >>> 2] = dstWriteHigh;
   }
   if (exceptfds) {
-   HEAP32[exceptfds >> 2] = dstExceptLow;
-   HEAP32[exceptfds + 4 >> 2] = dstExceptHigh;
+   HEAP32[exceptfds >>> 2] = dstExceptLow;
+   HEAP32[exceptfds + 4 >>> 2] = dstExceptHigh;
   }
   return total;
  } catch (e) {
@@ -6600,7 +6610,7 @@ var SOCKFS = {
     if (sock.recv_queue.length) {
      bytes = sock.recv_queue[0].data.length;
     }
-    HEAP32[arg >> 2] = bytes;
+    HEAP32[arg >>> 2] = bytes;
     return 0;
 
    default:
@@ -6811,7 +6821,7 @@ function getSocketFromFD(fd) {
 }
 
 function setErrNo(value) {
- HEAP32[___errno_location() >> 2] = value;
+ HEAP32[___errno_location() >>> 2] = value;
  return value;
 }
 
@@ -6878,28 +6888,28 @@ function writeSockaddr(sa, family, addr, port, addrlen) {
  case 2:
   addr = inetPton4(addr);
   if (addrlen) {
-   HEAP32[addrlen >> 2] = 16;
+   HEAP32[addrlen >>> 2] = 16;
   }
-  HEAP16[sa >> 1] = family;
-  HEAP32[sa + 4 >> 2] = addr;
-  HEAP16[sa + 2 >> 1] = _htons(port);
+  HEAP16[sa >>> 1] = family;
+  HEAP32[sa + 4 >>> 2] = addr;
+  HEAP16[sa + 2 >>> 1] = _htons(port);
   tempI64 = [ 0 >>> 0, (tempDouble = 0, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (Math.min(+Math.floor(tempDouble / 4294967296), 4294967295) | 0) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0) ], 
-  HEAP32[sa + 8 >> 2] = tempI64[0], HEAP32[sa + 12 >> 2] = tempI64[1];
+  HEAP32[sa + 8 >>> 2] = tempI64[0], HEAP32[sa + 12 >>> 2] = tempI64[1];
   break;
 
  case 10:
   addr = inetPton6(addr);
   if (addrlen) {
-   HEAP32[addrlen >> 2] = 28;
+   HEAP32[addrlen >>> 2] = 28;
   }
-  HEAP32[sa >> 2] = family;
-  HEAP32[sa + 8 >> 2] = addr[0];
-  HEAP32[sa + 12 >> 2] = addr[1];
-  HEAP32[sa + 16 >> 2] = addr[2];
-  HEAP32[sa + 20 >> 2] = addr[3];
-  HEAP16[sa + 2 >> 1] = _htons(port);
-  HEAP32[sa + 4 >> 2] = 0;
-  HEAP32[sa + 24 >> 2] = 0;
+  HEAP32[sa >>> 2] = family;
+  HEAP32[sa + 8 >>> 2] = addr[0];
+  HEAP32[sa + 12 >>> 2] = addr[1];
+  HEAP32[sa + 16 >>> 2] = addr[2];
+  HEAP32[sa + 20 >>> 2] = addr[3];
+  HEAP16[sa + 2 >>> 1] = _htons(port);
+  HEAP32[sa + 4 >>> 2] = 0;
+  HEAP32[sa + 24 >>> 2] = 0;
   break;
 
  default:
@@ -7045,8 +7055,8 @@ function inetNtop6(ints) {
 }
 
 function readSockaddr(sa, salen) {
- var family = HEAP16[sa >> 1];
- var port = _ntohs(HEAPU16[sa + 2 >> 1]);
+ var family = HEAP16[sa >>> 1];
+ var port = _ntohs(HEAPU16[sa + 2 >>> 1]);
  var addr;
  switch (family) {
  case 2:
@@ -7055,7 +7065,7 @@ function readSockaddr(sa, salen) {
     errno: 28
    };
   }
-  addr = HEAP32[sa + 4 >> 2];
+  addr = HEAP32[sa + 4 >>> 2];
   addr = inetNtop4(addr);
   break;
 
@@ -7065,7 +7075,7 @@ function readSockaddr(sa, salen) {
     errno: 28
    };
   }
-  addr = [ HEAP32[sa + 8 >> 2], HEAP32[sa + 12 >> 2], HEAP32[sa + 16 >> 2], HEAP32[sa + 20 >> 2] ];
+  addr = [ HEAP32[sa + 8 >>> 2], HEAP32[sa + 12 >>> 2], HEAP32[sa + 16 >>> 2], HEAP32[sa + 20 >>> 2] ];
   addr = inetNtop6(addr);
   break;
 
@@ -7146,7 +7156,7 @@ function ___sys_fcntl64(fd, cmd, varargs) {
    {
     var arg = SYSCALLS.get();
     var offset = 0;
-    HEAP16[arg + offset >> 1] = 2;
+    HEAP16[arg + offset >>> 1] = 2;
     return 0;
    }
 
@@ -7231,12 +7241,12 @@ function ___sys_getdents64(fd, dirp, count) {
     type = FS.isChrdev(child.mode) ? 2 : FS.isDir(child.mode) ? 4 : FS.isLink(child.mode) ? 10 : 8;
    }
    tempI64 = [ id >>> 0, (tempDouble = id, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (Math.min(+Math.floor(tempDouble / 4294967296), 4294967295) | 0) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0) ], 
-   HEAP32[dirp + pos >> 2] = tempI64[0], HEAP32[dirp + pos + 4 >> 2] = tempI64[1];
+   HEAP32[dirp + pos >>> 2] = tempI64[0], HEAP32[dirp + pos + 4 >>> 2] = tempI64[1];
    tempI64 = [ (idx + 1) * struct_size >>> 0, (tempDouble = (idx + 1) * struct_size, 
    +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (Math.min(+Math.floor(tempDouble / 4294967296), 4294967295) | 0) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0) ], 
-   HEAP32[dirp + pos + 8 >> 2] = tempI64[0], HEAP32[dirp + pos + 12 >> 2] = tempI64[1];
-   HEAP16[dirp + pos + 16 >> 1] = 280;
-   HEAP8[dirp + pos + 18 >> 0] = type;
+   HEAP32[dirp + pos + 8 >>> 2] = tempI64[0], HEAP32[dirp + pos + 12 >>> 2] = tempI64[1];
+   HEAP16[dirp + pos + 16 >>> 1] = 280;
+   HEAP8[dirp + pos + 18 >>> 0] = type;
    stringToUTF8(name, dirp + pos + 19, 256);
    pos += struct_size;
    idx += 1;
@@ -7275,10 +7285,10 @@ function ___sys_getpeername(fd, addr, addrlen) {
 function ___sys_getrusage(who, usage) {
  try {
   _memset(usage, 0, 136);
-  HEAP32[usage >> 2] = 1;
-  HEAP32[usage + 4 >> 2] = 2;
-  HEAP32[usage + 8 >> 2] = 3;
-  HEAP32[usage + 12 >> 2] = 4;
+  HEAP32[usage >>> 2] = 1;
+  HEAP32[usage + 4 >>> 2] = 2;
+  HEAP32[usage + 8 >>> 2] = 3;
+  HEAP32[usage + 12 >>> 2] = 4;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -7304,8 +7314,8 @@ function ___sys_getsockopt(fd, level, optname, optval, optlen) {
   var sock = getSocketFromFD(fd);
   if (level === 1) {
    if (optname === 4) {
-    HEAP32[optval >> 2] = sock.error;
-    HEAP32[optlen >> 2] = 4;
+    HEAP32[optval >>> 2] = sock.error;
+    HEAP32[optlen >>> 2] = 4;
     sock.error = null;
     return 0;
    }
@@ -7348,7 +7358,7 @@ function ___sys_ioctl(fd, op, varargs) {
    {
     if (!stream.tty) return -59;
     var argp = SYSCALLS.get();
-    HEAP32[argp >> 2] = 0;
+    HEAP32[argp >>> 2] = 0;
     return 0;
    }
 
@@ -7424,6 +7434,7 @@ function syscallMmap2(addr, len, prot, flags, fd, off) {
   ptr = res.ptr;
   allocated = res.allocated;
  }
+ ptr >>>= 0;
  SYSCALLS.mappings[ptr] = {
   malloc: ptr,
   len: len,
@@ -7446,6 +7457,7 @@ function ___sys_mmap2(addr, len, prot, flags, fd, off) {
 }
 
 function syscallMunmap(addr, len) {
+ addr >>>= 0;
  if ((addr | 0) === -1 || len === 0) {
   return -28;
  }
@@ -7672,8 +7684,8 @@ function ___sys_pipe(fdPtr) {
    throw new FS.ErrnoError(21);
   }
   var res = PIPEFS.createPipe();
-  HEAP32[fdPtr >> 2] = res.readable_fd;
-  HEAP32[fdPtr + 4 >> 2] = res.writable_fd;
+  HEAP32[fdPtr >>> 2] = res.readable_fd;
+  HEAP32[fdPtr + 4 >>> 2] = res.writable_fd;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -7686,8 +7698,8 @@ function ___sys_poll(fds, nfds, timeout) {
   var nonzero = 0;
   for (var i = 0; i < nfds; i++) {
    var pollfd = fds + 8 * i;
-   var fd = HEAP32[pollfd >> 2];
-   var events = HEAP16[pollfd + 4 >> 1];
+   var fd = HEAP32[pollfd >>> 2];
+   var events = HEAP16[pollfd + 4 >>> 1];
    var mask = 32;
    var stream = FS.getStream(fd);
    if (stream) {
@@ -7698,7 +7710,7 @@ function ___sys_poll(fds, nfds, timeout) {
    }
    mask &= events | 8 | 16;
    if (mask) nonzero++;
-   HEAP16[pollfd + 6 >> 1] = mask;
+   HEAP16[pollfd + 6 >>> 1] = mask;
   }
   return nonzero;
  } catch (e) {
@@ -7726,7 +7738,7 @@ function ___sys_recvfrom(fd, buf, len, flags, addr, addrlen) {
    var errno = writeSockaddr(addr, sock.family, DNS.lookup_name(msg.addr), msg.port, addrlen);
    assert(!errno);
   }
-  HEAPU8.set(msg.buffer, buf);
+  HEAPU8.set(msg.buffer, buf >>> 0);
   return msg.buffer.byteLength;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -7737,15 +7749,15 @@ function ___sys_recvfrom(fd, buf, len, flags, addr, addrlen) {
 function ___sys_recvmsg(fd, message, flags) {
  try {
   var sock = getSocketFromFD(fd);
-  var iov = HEAP32[message + 8 >> 2];
-  var num = HEAP32[message + 12 >> 2];
+  var iov = HEAP32[message + 8 >>> 2];
+  var num = HEAP32[message + 12 >>> 2];
   var total = 0;
   for (var i = 0; i < num; i++) {
-   total += HEAP32[iov + (8 * i + 4) >> 2];
+   total += HEAP32[iov + (8 * i + 4) >>> 2];
   }
   var msg = sock.sock_ops.recvmsg(sock, total);
   if (!msg) return 0;
-  var name = HEAP32[message >> 2];
+  var name = HEAP32[message >>> 2];
   if (name) {
    var errno = writeSockaddr(name, sock.family, DNS.lookup_name(msg.addr), msg.port);
    assert(!errno);
@@ -7753,14 +7765,14 @@ function ___sys_recvmsg(fd, message, flags) {
   var bytesRead = 0;
   var bytesRemaining = msg.buffer.byteLength;
   for (var i = 0; bytesRemaining > 0 && i < num; i++) {
-   var iovbase = HEAP32[iov + (8 * i + 0) >> 2];
-   var iovlen = HEAP32[iov + (8 * i + 4) >> 2];
+   var iovbase = HEAP32[iov + (8 * i + 0) >>> 2];
+   var iovlen = HEAP32[iov + (8 * i + 4) >>> 2];
    if (!iovlen) {
     continue;
    }
    var length = Math.min(iovlen, bytesRemaining);
    var buf = msg.buffer.subarray(bytesRead, bytesRead + length);
-   HEAPU8.set(buf, iovbase + bytesRead);
+   HEAPU8.set(buf, iovbase + bytesRead >>> 0);
    bytesRead += length;
    bytesRemaining -= length;
   }
@@ -7797,11 +7809,11 @@ function ___sys_rmdir(path) {
 function ___sys_sendmsg(fd, message, flags) {
  try {
   var sock = getSocketFromFD(fd);
-  var iov = HEAP32[message + 8 >> 2];
-  var num = HEAP32[message + 12 >> 2];
+  var iov = HEAP32[message + 8 >>> 2];
+  var num = HEAP32[message + 12 >>> 2];
   var addr, port;
-  var name = HEAP32[message >> 2];
-  var namelen = HEAP32[message + 4 >> 2];
+  var name = HEAP32[message >>> 2];
+  var namelen = HEAP32[message + 4 >>> 2];
   if (name) {
    var info = readSockaddr(name, namelen);
    if (info.errno) return -info.errno;
@@ -7810,15 +7822,15 @@ function ___sys_sendmsg(fd, message, flags) {
   }
   var total = 0;
   for (var i = 0; i < num; i++) {
-   total += HEAP32[iov + (8 * i + 4) >> 2];
+   total += HEAP32[iov + (8 * i + 4) >>> 2];
   }
   var view = new Uint8Array(total);
   var offset = 0;
   for (var i = 0; i < num; i++) {
-   var iovbase = HEAP32[iov + (8 * i + 0) >> 2];
-   var iovlen = HEAP32[iov + (8 * i + 4) >> 2];
+   var iovbase = HEAP32[iov + (8 * i + 0) >>> 2];
+   var iovlen = HEAP32[iov + (8 * i + 4) >>> 2];
    for (var j = 0; j < iovlen; j++) {
-    view[offset++] = HEAP8[iovbase + j >> 0];
+    view[offset++] = HEAP8[iovbase + j >>> 0];
    }
   }
   return sock.sock_ops.sendmsg(sock, view, 0, total, addr, port);
@@ -7887,16 +7899,16 @@ function ___sys_statfs64(path, size, buf) {
  try {
   path = SYSCALLS.getStr(path);
   assert(size === 64);
-  HEAP32[buf + 4 >> 2] = 4096;
-  HEAP32[buf + 40 >> 2] = 4096;
-  HEAP32[buf + 8 >> 2] = 1e6;
-  HEAP32[buf + 12 >> 2] = 5e5;
-  HEAP32[buf + 16 >> 2] = 5e5;
-  HEAP32[buf + 20 >> 2] = FS.nextInode;
-  HEAP32[buf + 24 >> 2] = 1e6;
-  HEAP32[buf + 28 >> 2] = 42;
-  HEAP32[buf + 44 >> 2] = 2;
-  HEAP32[buf + 36 >> 2] = 255;
+  HEAP32[buf + 4 >>> 2] = 4096;
+  HEAP32[buf + 40 >>> 2] = 4096;
+  HEAP32[buf + 8 >>> 2] = 1e6;
+  HEAP32[buf + 12 >>> 2] = 5e5;
+  HEAP32[buf + 16 >>> 2] = 5e5;
+  HEAP32[buf + 20 >>> 2] = FS.nextInode;
+  HEAP32[buf + 24 >>> 2] = 1e6;
+  HEAP32[buf + 28 >>> 2] = 42;
+  HEAP32[buf + 44 >>> 2] = 2;
+  HEAP32[buf + 36 >>> 2] = 255;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -7984,8 +7996,8 @@ function _clock_getres(clk_id, res) {
   setErrNo(28);
   return -1;
  }
- HEAP32[res >> 2] = nsec / 1e9 | 0;
- HEAP32[res + 4 >> 2] = nsec;
+ HEAP32[res >>> 2] = nsec / 1e9 | 0;
+ HEAP32[res + 4 >>> 2] = nsec;
  return 0;
 }
 
@@ -8012,8 +8024,8 @@ function _clock_gettime(clk_id, tp) {
   setErrNo(28);
   return -1;
  }
- HEAP32[tp >> 2] = now / 1e3 | 0;
- HEAP32[tp + 4 >> 2] = now % 1e3 * 1e3 * 1e3 | 0;
+ HEAP32[tp >>> 2] = now / 1e3 | 0;
+ HEAP32[tp + 4 >>> 2] = now % 1e3 * 1e3 * 1e3 | 0;
  return 0;
 }
 
@@ -8043,11 +8055,11 @@ function readAsmConstArgs(sigPtr, buf) {
  readAsmConstArgsArray.length = 0;
  var ch;
  buf >>= 2;
- while (ch = HEAPU8[sigPtr++]) {
+ while (ch = HEAPU8[sigPtr++ >>> 0]) {
   assert(ch === 100 || ch === 102 || ch === 105);
   var double = ch < 105;
   if (double && buf & 1) buf++;
-  readAsmConstArgsArray.push(double ? HEAPF64[buf++ >> 1] : HEAP32[buf]);
+  readAsmConstArgsArray.push(double ? HEAPF64[buf++ >>> 1] : HEAP32[buf >>> 0]);
   ++buf;
  }
  return readAsmConstArgsArray;
@@ -8721,18 +8733,18 @@ var Browser = {
  windowedHeight: 0,
  setFullscreenCanvasSize: function() {
   if (typeof SDL != "undefined") {
-   var flags = HEAPU32[SDL.screen >> 2];
+   var flags = HEAPU32[SDL.screen >>> 2];
    flags = flags | 8388608;
-   HEAP32[SDL.screen >> 2] = flags;
+   HEAP32[SDL.screen >>> 2] = flags;
   }
   Browser.updateCanvasDimensions(Module["canvas"]);
   Browser.updateResizeListeners();
  },
  setWindowedCanvasSize: function() {
   if (typeof SDL != "undefined") {
-   var flags = HEAPU32[SDL.screen >> 2];
+   var flags = HEAPU32[SDL.screen >>> 2];
    flags = flags & ~8388608;
-   HEAP32[SDL.screen >> 2] = flags;
+   HEAP32[SDL.screen >>> 2] = flags;
   }
   Browser.updateCanvasDimensions(Module["canvas"]);
   Browser.updateResizeListeners();
@@ -8926,8 +8938,8 @@ function findCanvasEventTarget(target) {
 function _emscripten_get_canvas_element_size(target, width, height) {
  var canvas = findCanvasEventTarget(target);
  if (!canvas) return -4;
- HEAP32[width >> 2] = canvas.width;
- HEAP32[height >> 2] = canvas.height;
+ HEAP32[width >>> 2] = canvas.width;
+ HEAP32[height >>> 2] = canvas.height;
 }
 
 function getCanvasElementSize(target) {
@@ -8937,7 +8949,7 @@ function getCanvasElementSize(target) {
  var targetInt = stackAlloc(target.id.length + 1);
  stringToUTF8(target.id, targetInt, target.id.length + 1);
  var ret = _emscripten_get_canvas_element_size(targetInt, w, h);
- var size = [ HEAP32[w >> 2], HEAP32[h >> 2] ];
+ var size = [ HEAP32[w >>> 2], HEAP32[h >>> 2] ];
  stackRestore(stackTop);
  return size;
 }
@@ -9143,17 +9155,17 @@ function _emscripten_exit_pointerlock() {
 function fillFullscreenChangeEventData(eventStruct) {
  var fullscreenElement = document.fullscreenElement || document.mozFullScreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
  var isFullscreen = !!fullscreenElement;
- HEAP32[eventStruct >> 2] = isFullscreen;
- HEAP32[eventStruct + 4 >> 2] = JSEvents.fullscreenEnabled();
+ HEAP32[eventStruct >>> 2] = isFullscreen;
+ HEAP32[eventStruct + 4 >>> 2] = JSEvents.fullscreenEnabled();
  var reportedElement = isFullscreen ? fullscreenElement : JSEvents.previousFullscreenElement;
  var nodeName = JSEvents.getNodeNameForTarget(reportedElement);
  var id = reportedElement && reportedElement.id ? reportedElement.id : "";
  stringToUTF8(nodeName, eventStruct + 8, 128);
  stringToUTF8(id, eventStruct + 136, 128);
- HEAP32[eventStruct + 264 >> 2] = reportedElement ? reportedElement.clientWidth : 0;
- HEAP32[eventStruct + 268 >> 2] = reportedElement ? reportedElement.clientHeight : 0;
- HEAP32[eventStruct + 272 >> 2] = screen.width;
- HEAP32[eventStruct + 276 >> 2] = screen.height;
+ HEAP32[eventStruct + 264 >>> 2] = reportedElement ? reportedElement.clientWidth : 0;
+ HEAP32[eventStruct + 268 >>> 2] = reportedElement ? reportedElement.clientHeight : 0;
+ HEAP32[eventStruct + 272 >>> 2] = screen.width;
+ HEAP32[eventStruct + 276 >>> 2] = screen.height;
  if (isFullscreen) {
   JSEvents.previousFullscreenElement = fullscreenElement;
  }
@@ -9166,28 +9178,28 @@ function _emscripten_get_fullscreen_status(fullscreenStatus) {
 }
 
 function fillGamepadEventData(eventStruct, e) {
- HEAPF64[eventStruct >> 3] = e.timestamp;
+ HEAPF64[eventStruct >>> 3] = e.timestamp;
  for (var i = 0; i < e.axes.length; ++i) {
-  HEAPF64[eventStruct + i * 8 + 16 >> 3] = e.axes[i];
+  HEAPF64[eventStruct + i * 8 + 16 >>> 3] = e.axes[i];
  }
  for (var i = 0; i < e.buttons.length; ++i) {
   if (typeof e.buttons[i] === "object") {
-   HEAPF64[eventStruct + i * 8 + 528 >> 3] = e.buttons[i].value;
+   HEAPF64[eventStruct + i * 8 + 528 >>> 3] = e.buttons[i].value;
   } else {
-   HEAPF64[eventStruct + i * 8 + 528 >> 3] = e.buttons[i];
+   HEAPF64[eventStruct + i * 8 + 528 >>> 3] = e.buttons[i];
   }
  }
  for (var i = 0; i < e.buttons.length; ++i) {
   if (typeof e.buttons[i] === "object") {
-   HEAP32[eventStruct + i * 4 + 1040 >> 2] = e.buttons[i].pressed;
+   HEAP32[eventStruct + i * 4 + 1040 >>> 2] = e.buttons[i].pressed;
   } else {
-   HEAP32[eventStruct + i * 4 + 1040 >> 2] = e.buttons[i] == 1;
+   HEAP32[eventStruct + i * 4 + 1040 >>> 2] = e.buttons[i] == 1;
   }
  }
- HEAP32[eventStruct + 1296 >> 2] = e.connected;
- HEAP32[eventStruct + 1300 >> 2] = e.index;
- HEAP32[eventStruct + 8 >> 2] = e.axes.length;
- HEAP32[eventStruct + 12 >> 2] = e.buttons.length;
+ HEAP32[eventStruct + 1296 >>> 2] = e.connected;
+ HEAP32[eventStruct + 1300 >>> 2] = e.index;
+ HEAP32[eventStruct + 8 >>> 2] = e.axes.length;
+ HEAP32[eventStruct + 12 >>> 2] = e.buttons.length;
  stringToUTF8(e.id, eventStruct + 1304, 64);
  stringToUTF8(e.mapping, eventStruct + 1368, 64);
 }
@@ -9201,7 +9213,7 @@ function _emscripten_get_gamepad_status(index, gamepadState) {
 }
 
 function _emscripten_get_heap_max() {
- return 2147483648;
+ return 4294901760;
 }
 
 function _emscripten_get_num_gamepads() {
@@ -9267,15 +9279,15 @@ function formatString(format, varargs) {
   var ret;
   argIndex = prepVararg(argIndex, type);
   if (type === "double") {
-   ret = HEAPF64[argIndex >> 3];
+   ret = HEAPF64[argIndex >>> 3];
    argIndex += 8;
   } else if (type == "i64") {
-   ret = [ HEAP32[argIndex >> 2], HEAP32[argIndex + 4 >> 2] ];
+   ret = [ HEAP32[argIndex >>> 2], HEAP32[argIndex + 4 >>> 2] ];
    argIndex += 8;
   } else {
    assert((argIndex & 3) === 0);
    type = "i32";
-   ret = HEAP32[argIndex >> 2];
+   ret = HEAP32[argIndex >>> 2];
    argIndex += 4;
   }
   return ret;
@@ -9284,9 +9296,9 @@ function formatString(format, varargs) {
  var curr, next, currArg;
  while (1) {
   var startTextIndex = textIndex;
-  curr = HEAP8[textIndex >> 0];
+  curr = HEAP8[textIndex >>> 0];
   if (curr === 0) break;
-  next = HEAP8[textIndex + 1 >> 0];
+  next = HEAP8[textIndex + 1 >>> 0];
   if (curr == 37) {
    var flagAlwaysSigned = false;
    var flagLeftAlign = false;
@@ -9323,18 +9335,18 @@ function formatString(format, varargs) {
      break flagsLoop;
     }
     textIndex++;
-    next = HEAP8[textIndex + 1 >> 0];
+    next = HEAP8[textIndex + 1 >>> 0];
    }
    var width = 0;
    if (next == 42) {
     width = getNextArg("i32");
     textIndex++;
-    next = HEAP8[textIndex + 1 >> 0];
+    next = HEAP8[textIndex + 1 >>> 0];
    } else {
     while (next >= 48 && next <= 57) {
      width = width * 10 + (next - 48);
      textIndex++;
-     next = HEAP8[textIndex + 1 >> 0];
+     next = HEAP8[textIndex + 1 >>> 0];
     }
    }
    var precisionSet = false, precision = -1;
@@ -9342,19 +9354,19 @@ function formatString(format, varargs) {
     precision = 0;
     precisionSet = true;
     textIndex++;
-    next = HEAP8[textIndex + 1 >> 0];
+    next = HEAP8[textIndex + 1 >>> 0];
     if (next == 42) {
      precision = getNextArg("i32");
      textIndex++;
     } else {
      while (1) {
-      var precisionChr = HEAP8[textIndex + 1 >> 0];
+      var precisionChr = HEAP8[textIndex + 1 >>> 0];
       if (precisionChr < 48 || precisionChr > 57) break;
       precision = precision * 10 + (precisionChr - 48);
       textIndex++;
      }
     }
-    next = HEAP8[textIndex + 1 >> 0];
+    next = HEAP8[textIndex + 1 >>> 0];
    }
    if (precision < 0) {
     precision = 6;
@@ -9363,7 +9375,7 @@ function formatString(format, varargs) {
    var argSize;
    switch (String.fromCharCode(next)) {
    case "h":
-    var nextNext = HEAP8[textIndex + 2 >> 0];
+    var nextNext = HEAP8[textIndex + 2 >>> 0];
     if (nextNext == 104) {
      textIndex++;
      argSize = 1;
@@ -9373,7 +9385,7 @@ function formatString(format, varargs) {
     break;
 
    case "l":
-    var nextNext = HEAP8[textIndex + 2 >> 0];
+    var nextNext = HEAP8[textIndex + 2 >>> 0];
     if (nextNext == 108) {
      textIndex++;
      argSize = 8;
@@ -9398,7 +9410,7 @@ function formatString(format, varargs) {
     argSize = null;
    }
    if (argSize) textIndex++;
-   next = HEAP8[textIndex + 1 >> 0];
+   next = HEAP8[textIndex + 1 >>> 0];
    switch (String.fromCharCode(next)) {
    case "d":
    case "i":
@@ -9579,7 +9591,7 @@ function formatString(format, varargs) {
      }
      if (arg) {
       for (var i = 0; i < argLength; i++) {
-       ret.push(HEAPU8[arg++ >> 0]);
+       ret.push(HEAPU8[arg++ >>> 0]);
       }
      } else {
       ret = ret.concat(intArrayFromString("(null)".substr(0, argLength), true));
@@ -9605,7 +9617,7 @@ function formatString(format, varargs) {
    case "n":
     {
      var ptr = getNextArg("i32*");
-     HEAP32[ptr >> 2] = ret.length;
+     HEAP32[ptr >>> 2] = ret.length;
      break;
     }
 
@@ -9618,7 +9630,7 @@ function formatString(format, varargs) {
    default:
     {
      for (var i = startTextIndex; i < textIndex + 2; i++) {
-      ret.push(HEAP8[i >> 0]);
+      ret.push(HEAP8[i >>> 0]);
      }
     }
    }
@@ -9770,7 +9782,7 @@ function _emscripten_log(flags, format, varargs) {
 }
 
 function _emscripten_memcpy_big(dest, src, num) {
- HEAPU8.copyWithin(dest, src, src + num);
+ HEAPU8.copyWithin(dest >>> 0, src >>> 0, src + num >>> 0);
 }
 
 function doRequestFullscreen(target, strategy) {
@@ -9835,7 +9847,7 @@ function _emscripten_resize_heap(requestedSize) {
  var oldSize = HEAPU8.length;
  requestedSize = requestedSize >>> 0;
  assert(requestedSize > oldSize);
- var maxHeapSize = 2147483648;
+ var maxHeapSize = 4294901760;
  if (requestedSize > maxHeapSize) {
   err("Cannot enlarge memory, asked to go up to " + requestedSize + " bytes, but the limit is " + maxHeapSize + " bytes!");
   return false;
@@ -9966,15 +9978,15 @@ function registerKeyEventCallback(target, userData, useCapture, callbackfunc, ev
   assert(e);
   var keyEventData = JSEvents.keyEvent;
   var idx = keyEventData >> 2;
-  HEAP32[idx + 0] = e.location;
-  HEAP32[idx + 1] = e.ctrlKey;
-  HEAP32[idx + 2] = e.shiftKey;
-  HEAP32[idx + 3] = e.altKey;
-  HEAP32[idx + 4] = e.metaKey;
-  HEAP32[idx + 5] = e.repeat;
-  HEAP32[idx + 6] = e.charCode;
-  HEAP32[idx + 7] = e.keyCode;
-  HEAP32[idx + 8] = e.which;
+  HEAP32[idx + 0 >>> 0] = e.location;
+  HEAP32[idx + 1 >>> 0] = e.ctrlKey;
+  HEAP32[idx + 2 >>> 0] = e.shiftKey;
+  HEAP32[idx + 3 >>> 0] = e.altKey;
+  HEAP32[idx + 4 >>> 0] = e.metaKey;
+  HEAP32[idx + 5 >>> 0] = e.repeat;
+  HEAP32[idx + 6 >>> 0] = e.charCode;
+  HEAP32[idx + 7 >>> 0] = e.keyCode;
+  HEAP32[idx + 8 >>> 0] = e.which;
   stringToUTF8(e.key || "", keyEventData + 36, 32);
   stringToUTF8(e.code || "", keyEventData + 68, 32);
   stringToUTF8(e.char || "", keyEventData + 100, 32);
@@ -10019,21 +10031,21 @@ function _emscripten_set_main_loop(func, fps, simulateInfiniteLoop) {
 function fillMouseEventData(eventStruct, e, target) {
  assert(eventStruct % 4 == 0);
  var idx = eventStruct >> 2;
- HEAP32[idx + 0] = e.screenX;
- HEAP32[idx + 1] = e.screenY;
- HEAP32[idx + 2] = e.clientX;
- HEAP32[idx + 3] = e.clientY;
- HEAP32[idx + 4] = e.ctrlKey;
- HEAP32[idx + 5] = e.shiftKey;
- HEAP32[idx + 6] = e.altKey;
- HEAP32[idx + 7] = e.metaKey;
- HEAP16[idx * 2 + 16] = e.button;
- HEAP16[idx * 2 + 17] = e.buttons;
- HEAP32[idx + 9] = e["movementX"];
- HEAP32[idx + 10] = e["movementY"];
+ HEAP32[idx + 0 >>> 0] = e.screenX;
+ HEAP32[idx + 1 >>> 0] = e.screenY;
+ HEAP32[idx + 2 >>> 0] = e.clientX;
+ HEAP32[idx + 3 >>> 0] = e.clientY;
+ HEAP32[idx + 4 >>> 0] = e.ctrlKey;
+ HEAP32[idx + 5 >>> 0] = e.shiftKey;
+ HEAP32[idx + 6 >>> 0] = e.altKey;
+ HEAP32[idx + 7 >>> 0] = e.metaKey;
+ HEAP16[idx * 2 + 16 >>> 0] = e.button;
+ HEAP16[idx * 2 + 17 >>> 0] = e.buttons;
+ HEAP32[idx + 9 >>> 0] = e["movementX"];
+ HEAP32[idx + 10 >>> 0] = e["movementY"];
  var rect = getBoundingClientRect(target);
- HEAP32[idx + 11] = e.clientX - rect.left;
- HEAP32[idx + 12] = e.clientY - rect.top;
+ HEAP32[idx + 11 >>> 0] = e.clientX - rect.left;
+ HEAP32[idx + 12 >>> 0] = e.clientY - rect.top;
 }
 
 function registerMouseEventCallback(target, userData, useCapture, callbackfunc, eventTypeId, eventTypeString, targetThread) {
@@ -10093,32 +10105,32 @@ function registerTouchEventCallback(target, userData, useCapture, callbackfunc, 
   }
   var touchEvent = JSEvents.touchEvent;
   var idx = touchEvent >> 2;
-  HEAP32[idx + 1] = e.ctrlKey;
-  HEAP32[idx + 2] = e.shiftKey;
-  HEAP32[idx + 3] = e.altKey;
-  HEAP32[idx + 4] = e.metaKey;
+  HEAP32[idx + 1 >>> 0] = e.ctrlKey;
+  HEAP32[idx + 2 >>> 0] = e.shiftKey;
+  HEAP32[idx + 3 >>> 0] = e.altKey;
+  HEAP32[idx + 4 >>> 0] = e.metaKey;
   idx += 5;
   var targetRect = getBoundingClientRect(target);
   var numTouches = 0;
   for (var i in touches) {
    var t = touches[i];
-   HEAP32[idx + 0] = t.identifier;
-   HEAP32[idx + 1] = t.screenX;
-   HEAP32[idx + 2] = t.screenY;
-   HEAP32[idx + 3] = t.clientX;
-   HEAP32[idx + 4] = t.clientY;
-   HEAP32[idx + 5] = t.pageX;
-   HEAP32[idx + 6] = t.pageY;
-   HEAP32[idx + 7] = t.isChanged;
-   HEAP32[idx + 8] = t.onTarget;
-   HEAP32[idx + 9] = t.clientX - targetRect.left;
-   HEAP32[idx + 10] = t.clientY - targetRect.top;
+   HEAP32[idx + 0 >>> 0] = t.identifier;
+   HEAP32[idx + 1 >>> 0] = t.screenX;
+   HEAP32[idx + 2 >>> 0] = t.screenY;
+   HEAP32[idx + 3 >>> 0] = t.clientX;
+   HEAP32[idx + 4 >>> 0] = t.clientY;
+   HEAP32[idx + 5 >>> 0] = t.pageX;
+   HEAP32[idx + 6 >>> 0] = t.pageY;
+   HEAP32[idx + 7 >>> 0] = t.isChanged;
+   HEAP32[idx + 8 >>> 0] = t.onTarget;
+   HEAP32[idx + 9 >>> 0] = t.clientX - targetRect.left;
+   HEAP32[idx + 10 >>> 0] = t.clientY - targetRect.top;
    idx += 13;
    if (++numTouches > 31) {
     break;
    }
   }
-  HEAP32[touchEvent >> 2] = numTouches;
+  HEAP32[touchEvent >>> 2] = numTouches;
   if (function(a1, a2, a3) {
    return dynCall_iiii.apply(null, [ callbackfunc, a1, a2, a3 ]);
   }(eventTypeId, touchEvent, userData)) e.preventDefault();
@@ -10160,10 +10172,10 @@ function registerWheelEventCallback(target, userData, useCapture, callbackfunc, 
   var e = ev || event;
   var wheelEvent = JSEvents.wheelEvent;
   fillMouseEventData(wheelEvent, e, target);
-  HEAPF64[wheelEvent + 64 >> 3] = e["deltaX"];
-  HEAPF64[wheelEvent + 72 >> 3] = e["deltaY"];
-  HEAPF64[wheelEvent + 80 >> 3] = e["deltaZ"];
-  HEAP32[wheelEvent + 88 >> 2] = e["deltaMode"];
+  HEAPF64[wheelEvent + 64 >>> 3] = e["deltaX"];
+  HEAPF64[wheelEvent + 72 >>> 3] = e["deltaY"];
+  HEAPF64[wheelEvent + 80 >>> 3] = e["deltaZ"];
+  HEAP32[wheelEvent + 88 >>> 2] = e["deltaMode"];
   if (function(a1, a2, a3) {
    return dynCall_iiii.apply(null, [ callbackfunc, a1, a2, a3 ]);
   }(eventTypeId, wheelEvent, userData)) e.preventDefault();
@@ -10384,8 +10396,8 @@ var GL = {
  getSource: function(shader, count, string, length) {
   var source = "";
   for (var i = 0; i < count; ++i) {
-   var len = length ? HEAP32[length + i * 4 >> 2] : -1;
-   source += UTF8ToString(HEAP32[string + i * 4 >> 2], len < 0 ? undefined : len);
+   var len = length ? HEAP32[length + i * 4 >>> 2] : -1;
+   source += UTF8ToString(HEAP32[string + i * 4 >>> 2], len < 0 ? undefined : len);
   }
   return source;
  },
@@ -10406,7 +10418,7 @@ var GL = {
    var size = GL.calcBufLength(cb.size, cb.type, cb.stride, count);
    var buf = GL.getTempVertexBuffer(size);
    GLctx.bindBuffer(34962, buf);
-   GLctx.bufferSubData(34962, 0, HEAPU8.subarray(cb.ptr, cb.ptr + size));
+   GLctx.bufferSubData(34962, 0, HEAPU8.subarray(cb.ptr >>> 0, cb.ptr + size >>> 0));
    cb.vertexAttribPointerAdaptor.call(GLctx, i, cb.size, cb.type, cb.normalized, cb.stride, 0);
   }
  },
@@ -10503,22 +10515,22 @@ var __emscripten_webgl_power_preferences = [ "default", "low-power", "high-perfo
 function _emscripten_webgl_do_create_context(target, attributes) {
  assert(attributes);
  var a = attributes >> 2;
- var powerPreference = HEAP32[a + (24 >> 2)];
+ var powerPreference = HEAP32[a + (24 >> 2) >>> 0];
  var contextAttributes = {
-  "alpha": !!HEAP32[a + (0 >> 2)],
-  "depth": !!HEAP32[a + (4 >> 2)],
-  "stencil": !!HEAP32[a + (8 >> 2)],
-  "antialias": !!HEAP32[a + (12 >> 2)],
-  "premultipliedAlpha": !!HEAP32[a + (16 >> 2)],
-  "preserveDrawingBuffer": !!HEAP32[a + (20 >> 2)],
+  "alpha": !!HEAP32[a + (0 >> 2) >>> 0],
+  "depth": !!HEAP32[a + (4 >> 2) >>> 0],
+  "stencil": !!HEAP32[a + (8 >> 2) >>> 0],
+  "antialias": !!HEAP32[a + (12 >> 2) >>> 0],
+  "premultipliedAlpha": !!HEAP32[a + (16 >> 2) >>> 0],
+  "preserveDrawingBuffer": !!HEAP32[a + (20 >> 2) >>> 0],
   "powerPreference": __emscripten_webgl_power_preferences[powerPreference],
-  "failIfMajorPerformanceCaveat": !!HEAP32[a + (28 >> 2)],
-  majorVersion: HEAP32[a + (32 >> 2)],
-  minorVersion: HEAP32[a + (36 >> 2)],
-  enableExtensionsByDefault: HEAP32[a + (40 >> 2)],
-  explicitSwapControl: HEAP32[a + (44 >> 2)],
-  proxyContextToMainThread: HEAP32[a + (48 >> 2)],
-  renderViaOffscreenBackBuffer: HEAP32[a + (52 >> 2)]
+  "failIfMajorPerformanceCaveat": !!HEAP32[a + (28 >> 2) >>> 0],
+  majorVersion: HEAP32[a + (32 >> 2) >>> 0],
+  minorVersion: HEAP32[a + (36 >> 2) >>> 0],
+  enableExtensionsByDefault: HEAP32[a + (40 >> 2) >>> 0],
+  explicitSwapControl: HEAP32[a + (44 >> 2) >>> 0],
+  proxyContextToMainThread: HEAP32[a + (48 >> 2) >>> 0],
+  renderViaOffscreenBackBuffer: HEAP32[a + (52 >> 2) >>> 0]
  };
  var canvas = findCanvasEventTarget(target);
  if (!canvas) {
@@ -10575,9 +10587,9 @@ function _emscripten_webgl_init_context_attributes(attributes) {
  assert(attributes);
  var a = attributes >> 2;
  for (var i = 0; i < 56 >> 2; ++i) {
-  HEAP32[a + i] = 0;
+  HEAP32[a + i >>> 0] = 0;
  }
- HEAP32[a + (0 >> 2)] = HEAP32[a + (4 >> 2)] = HEAP32[a + (12 >> 2)] = HEAP32[a + (16 >> 2)] = HEAP32[a + (32 >> 2)] = HEAP32[a + (40 >> 2)] = 1;
+ HEAP32[a + (0 >> 2) >>> 0] = HEAP32[a + (4 >> 2) >>> 0] = HEAP32[a + (12 >> 2) >>> 0] = HEAP32[a + (16 >> 2) >>> 0] = HEAP32[a + (32 >> 2) >>> 0] = HEAP32[a + (40 >> 2) >>> 0] = 1;
 }
 
 var ENV = {};
@@ -10615,7 +10627,7 @@ function _environ_get(__environ, environ_buf) {
   var bufSize = 0;
   getEnvStrings().forEach(function(string, i) {
    var ptr = environ_buf + bufSize;
-   HEAP32[__environ + i * 4 >> 2] = ptr;
+   HEAP32[__environ + i * 4 >>> 2] = ptr;
    writeAsciiToMemory(string, ptr);
    bufSize += string.length + 1;
   });
@@ -10629,12 +10641,12 @@ function _environ_get(__environ, environ_buf) {
 function _environ_sizes_get(penviron_count, penviron_buf_size) {
  try {
   var strings = getEnvStrings();
-  HEAP32[penviron_count >> 2] = strings.length;
+  HEAP32[penviron_count >>> 2] = strings.length;
   var bufSize = 0;
   strings.forEach(function(string) {
    bufSize += string.length + 1;
   });
-  HEAP32[penviron_buf_size >> 2] = bufSize;
+  HEAP32[penviron_buf_size >>> 2] = bufSize;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -10657,7 +10669,7 @@ function _fd_fdstat_get(fd, pbuf) {
  try {
   var stream = SYSCALLS.getStreamFromFD(fd);
   var type = stream.tty ? 2 : FS.isDir(stream.mode) ? 3 : FS.isLink(stream.mode) ? 7 : 4;
-  HEAP8[pbuf >> 0] = type;
+  HEAP8[pbuf >>> 0] = type;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -10669,7 +10681,7 @@ function _fd_read(fd, iov, iovcnt, pnum) {
  try {
   var stream = SYSCALLS.getStreamFromFD(fd);
   var num = SYSCALLS.doReadv(stream, iov, iovcnt);
-  HEAP32[pnum >> 2] = num;
+  HEAP32[pnum >>> 2] = num;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -10688,7 +10700,7 @@ function _fd_seek(fd, offset_low, offset_high, whence, newOffset) {
   }
   FS.llseek(stream, offset, whence);
   tempI64 = [ stream.position >>> 0, (tempDouble = stream.position, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (Math.min(+Math.floor(tempDouble / 4294967296), 4294967295) | 0) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0) ], 
-  HEAP32[newOffset >> 2] = tempI64[0], HEAP32[newOffset + 4 >> 2] = tempI64[1];
+  HEAP32[newOffset >>> 2] = tempI64[0], HEAP32[newOffset + 4 >>> 2] = tempI64[1];
   if (stream.getdents && offset === 0 && whence === 0) stream.getdents = null;
   return 0;
  } catch (e) {
@@ -10701,7 +10713,7 @@ function _fd_write(fd, iov, iovcnt, pnum) {
  try {
   var stream = SYSCALLS.getStreamFromFD(fd);
   var num = SYSCALLS.doWritev(stream, iov, iovcnt);
-  HEAP32[pnum >> 2] = num;
+  HEAP32[pnum >>> 2] = num;
   return 0;
  } catch (e) {
   if (typeof FS === "undefined" || !(e instanceof FS.ErrnoError)) abort(e);
@@ -10734,24 +10746,24 @@ function _getaddrinfo(node, service, hint, out) {
   errno = writeSockaddr(sa, family, addr, port);
   assert(!errno);
   ai = _malloc(32);
-  HEAP32[ai + 4 >> 2] = family;
-  HEAP32[ai + 8 >> 2] = type;
-  HEAP32[ai + 12 >> 2] = proto;
-  HEAP32[ai + 24 >> 2] = canon;
-  HEAP32[ai + 20 >> 2] = sa;
+  HEAP32[ai + 4 >>> 2] = family;
+  HEAP32[ai + 8 >>> 2] = type;
+  HEAP32[ai + 12 >>> 2] = proto;
+  HEAP32[ai + 24 >>> 2] = canon;
+  HEAP32[ai + 20 >>> 2] = sa;
   if (family === 10) {
-   HEAP32[ai + 16 >> 2] = 28;
+   HEAP32[ai + 16 >>> 2] = 28;
   } else {
-   HEAP32[ai + 16 >> 2] = 16;
+   HEAP32[ai + 16 >>> 2] = 16;
   }
-  HEAP32[ai + 28 >> 2] = 0;
+  HEAP32[ai + 28 >>> 2] = 0;
   return ai;
  }
  if (hint) {
-  flags = HEAP32[hint >> 2];
-  family = HEAP32[hint + 4 >> 2];
-  type = HEAP32[hint + 8 >> 2];
-  proto = HEAP32[hint + 12 >> 2];
+  flags = HEAP32[hint >>> 2];
+  family = HEAP32[hint + 4 >>> 2];
+  type = HEAP32[hint + 8 >>> 2];
+  proto = HEAP32[hint + 12 >>> 2];
  }
  if (type && !proto) {
   proto = type === 2 ? 17 : 6;
@@ -10771,7 +10783,7 @@ function _getaddrinfo(node, service, hint, out) {
  if (flags & ~(1 | 2 | 4 | 1024 | 8 | 16 | 32)) {
   return -1;
  }
- if (hint !== 0 && HEAP32[hint >> 2] & 2 && !node) {
+ if (hint !== 0 && HEAP32[hint >>> 2] & 2 && !node) {
   return -1;
  }
  if (flags & 32) {
@@ -10805,7 +10817,7 @@ function _getaddrinfo(node, service, hint, out) {
    }
   }
   ai = allocaddrinfo(family, type, proto, null, addr, port);
-  HEAP32[out >> 2] = ai;
+  HEAP32[out >>> 2] = ai;
   return 0;
  }
  node = UTF8ToString(node);
@@ -10831,7 +10843,7 @@ function _getaddrinfo(node, service, hint, out) {
  }
  if (addr != null) {
   ai = allocaddrinfo(family, type, proto, node, addr, port);
-  HEAP32[out >> 2] = ai;
+  HEAP32[out >>> 2] = ai;
   return 0;
  }
  if (flags & 4) {
@@ -10845,7 +10857,7 @@ function _getaddrinfo(node, service, hint, out) {
   addr = [ 0, 0, _htonl(65535), addr ];
  }
  ai = allocaddrinfo(family, type, proto, null, addr, port);
- HEAP32[out >> 2] = ai;
+ HEAP32[out >>> 2] = ai;
  return 0;
 }
 
@@ -10853,18 +10865,18 @@ function getHostByName(name) {
  var ret = _malloc(20);
  var nameBuf = _malloc(name.length + 1);
  stringToUTF8(name, nameBuf, name.length + 1);
- HEAP32[ret >> 2] = nameBuf;
+ HEAP32[ret >>> 2] = nameBuf;
  var aliasesBuf = _malloc(4);
- HEAP32[aliasesBuf >> 2] = 0;
- HEAP32[ret + 4 >> 2] = aliasesBuf;
+ HEAP32[aliasesBuf >>> 2] = 0;
+ HEAP32[ret + 4 >>> 2] = aliasesBuf;
  var afinet = 2;
- HEAP32[ret + 8 >> 2] = afinet;
- HEAP32[ret + 12 >> 2] = 4;
+ HEAP32[ret + 8 >>> 2] = afinet;
+ HEAP32[ret + 12 >>> 2] = 4;
  var addrListBuf = _malloc(12);
- HEAP32[addrListBuf >> 2] = addrListBuf + 8;
- HEAP32[addrListBuf + 4 >> 2] = 0;
- HEAP32[addrListBuf + 8 >> 2] = inetPton4(DNS.lookup_name(name));
- HEAP32[ret + 16 >> 2] = addrListBuf;
+ HEAP32[addrListBuf >>> 2] = addrListBuf + 8;
+ HEAP32[addrListBuf + 4 >>> 2] = 0;
+ HEAP32[addrListBuf + 8 >>> 2] = inetPton4(DNS.lookup_name(name));
+ HEAP32[ret + 16 >>> 2] = addrListBuf;
  return ret;
 }
 
@@ -10873,7 +10885,7 @@ function _gethostbyaddr(addr, addrlen, type) {
   setErrNo(5);
   return null;
  }
- addr = HEAP32[addr >> 2];
+ addr = HEAP32[addr >>> 2];
  var host = inetNtop4(addr);
  var lookup = DNS.lookup_addr(host);
  if (lookup) {
@@ -10927,8 +10939,8 @@ function _getpwuid() {
 
 function _gettimeofday(ptr) {
  var now = Date.now();
- HEAP32[ptr >> 2] = now / 1e3 | 0;
- HEAP32[ptr + 4 >> 2] = now % 1e3 * 1e3 | 0;
+ HEAP32[ptr >>> 2] = now / 1e3 | 0;
+ HEAP32[ptr + 4 >>> 2] = now % 1e3 * 1e3 | 0;
  return 0;
 }
 
@@ -11019,7 +11031,7 @@ function _glBufferData(target, size, data, usage) {
    GLctx.bufferData(target, size, usage);
   }
  } else {
-  GLctx.bufferData(target, data ? HEAPU8.subarray(data, data + size) : size, usage);
+  GLctx.bufferData(target, data ? HEAPU8.subarray(data >>> 0, data + size >>> 0) : size, usage);
  }
 }
 
@@ -11028,7 +11040,7 @@ function _glBufferSubData(target, offset, size, data) {
   GLctx.bufferSubData(target, offset, HEAPU8, data, size);
   return;
  }
- GLctx.bufferSubData(target, offset, HEAPU8.subarray(data, data + size));
+ GLctx.bufferSubData(target, offset, HEAPU8.subarray(data >>> 0, data + size >>> 0));
 }
 
 function _glCheckFramebufferStatus(x0) {
@@ -11084,7 +11096,7 @@ function _glCompressedTexImage2D(target, level, internalFormat, width, height, b
   }
   return;
  }
- GLctx["compressedTexImage2D"](target, level, internalFormat, width, height, border, data ? HEAPU8.subarray(data, data + imageSize) : null);
+ GLctx["compressedTexImage2D"](target, level, internalFormat, width, height, border, data ? HEAPU8.subarray(data >>> 0, data + imageSize >>> 0) : null);
 }
 
 function _glCompressedTexImage3D(target, level, internalFormat, width, height, depth, border, imageSize, data) {
@@ -11104,7 +11116,7 @@ function _glCompressedTexSubImage2D(target, level, xoffset, yoffset, width, heig
   }
   return;
  }
- GLctx["compressedTexSubImage2D"](target, level, xoffset, yoffset, width, height, format, data ? HEAPU8.subarray(data, data + imageSize) : null);
+ GLctx["compressedTexSubImage2D"](target, level, xoffset, yoffset, width, height, format, data ? HEAPU8.subarray(data >>> 0, data + imageSize >>> 0) : null);
 }
 
 function _glCompressedTexSubImage3D(target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data) {
@@ -11150,7 +11162,7 @@ function _glCullFace(x0) {
 
 function _glDeleteBuffers(n, buffers) {
  for (var i = 0; i < n; i++) {
-  var id = HEAP32[buffers + i * 4 >> 2];
+  var id = HEAP32[buffers + i * 4 >>> 2];
   var buffer = GL.buffers[id];
   if (!buffer) continue;
   GLctx.deleteBuffer(buffer);
@@ -11165,7 +11177,7 @@ function _glDeleteBuffers(n, buffers) {
 
 function _glDeleteFramebuffers(n, framebuffers) {
  for (var i = 0; i < n; ++i) {
-  var id = HEAP32[framebuffers + i * 4 >> 2];
+  var id = HEAP32[framebuffers + i * 4 >>> 2];
   var framebuffer = GL.framebuffers[id];
   if (!framebuffer) continue;
   GLctx.deleteFramebuffer(framebuffer);
@@ -11188,7 +11200,7 @@ function _glDeleteProgram(id) {
 
 function _glDeleteQueries(n, ids) {
  for (var i = 0; i < n; i++) {
-  var id = HEAP32[ids + i * 4 >> 2];
+  var id = HEAP32[ids + i * 4 >>> 2];
   var query = GL.queries[id];
   if (!query) continue;
   GLctx["deleteQuery"](query);
@@ -11198,7 +11210,7 @@ function _glDeleteQueries(n, ids) {
 
 function _glDeleteRenderbuffers(n, renderbuffers) {
  for (var i = 0; i < n; i++) {
-  var id = HEAP32[renderbuffers + i * 4 >> 2];
+  var id = HEAP32[renderbuffers + i * 4 >>> 2];
   var renderbuffer = GL.renderbuffers[id];
   if (!renderbuffer) continue;
   GLctx.deleteRenderbuffer(renderbuffer);
@@ -11209,7 +11221,7 @@ function _glDeleteRenderbuffers(n, renderbuffers) {
 
 function _glDeleteSamplers(n, samplers) {
  for (var i = 0; i < n; i++) {
-  var id = HEAP32[samplers + i * 4 >> 2];
+  var id = HEAP32[samplers + i * 4 >>> 2];
   var sampler = GL.samplers[id];
   if (!sampler) continue;
   GLctx["deleteSampler"](sampler);
@@ -11243,7 +11255,7 @@ function _glDeleteSync(id) {
 
 function _glDeleteTextures(n, textures) {
  for (var i = 0; i < n; i++) {
-  var id = HEAP32[textures + i * 4 >> 2];
+  var id = HEAP32[textures + i * 4 >>> 2];
   var texture = GL.textures[id];
   if (!texture) continue;
   GLctx.deleteTexture(texture);
@@ -11254,7 +11266,7 @@ function _glDeleteTextures(n, textures) {
 
 function _glDeleteVertexArrays(n, vaos) {
  for (var i = 0; i < n; i++) {
-  var id = HEAP32[vaos + i * 4 >> 2];
+  var id = HEAP32[vaos + i * 4 >>> 2];
   GLctx["deleteVertexArray"](GL.vaos[id]);
   GL.vaos[id] = null;
  }
@@ -11297,7 +11309,7 @@ var tempFixedLengthArray = [];
 function _glDrawBuffers(n, bufs) {
  var bufArray = tempFixedLengthArray[n];
  for (var i = 0; i < n; i++) {
-  bufArray[i] = HEAP32[bufs + i * 4 >> 2];
+  bufArray[i] = HEAP32[bufs + i * 4 >>> 2];
  }
  GLctx["drawBuffers"](bufArray);
 }
@@ -11308,7 +11320,7 @@ function _glDrawElements(mode, count, type, indices) {
   var size = GL.calcBufLength(1, type, 0, count);
   buf = GL.getTempIndexBuffer(size);
   GLctx.bindBuffer(34963, buf);
-  GLctx.bufferSubData(34963, 0, HEAPU8.subarray(indices, indices + size));
+  GLctx.bufferSubData(34963, 0, HEAPU8.subarray(indices >>> 0, indices + size >>> 0));
   indices = 0;
  }
  GL.preDrawHandleClientVertexAttribBindings(count);
@@ -11435,7 +11447,7 @@ function _glFlushMappedBufferRange(target, offset, length) {
   err("invalid range in glFlushMappedBufferRange");
   return;
  }
- GLctx.bufferSubData(target, mapping.offset, HEAPU8.subarray(mapping.mem + offset, mapping.mem + offset + length));
+ GLctx.bufferSubData(target, mapping.offset, HEAPU8.subarray(mapping.mem + offset >>> 0, mapping.mem + offset + length >>> 0));
 }
 
 function _glFramebufferRenderbuffer(target, attachment, renderbuffertarget, renderbuffer) {
@@ -11464,7 +11476,7 @@ function __glGenObject(n, buffers, createFunction, objectTable) {
   } else {
    GL.recordError(1282);
   }
-  HEAP32[buffers + i * 4 >> 2] = id;
+  HEAP32[buffers + i * 4 >>> 2] = id;
  }
 }
 
@@ -11505,9 +11517,9 @@ function __glGetActiveAttribOrUniform(funcName, program, index, bufSize, length,
  var info = GLctx[funcName](program, index);
  if (info) {
   var numBytesWrittenExclNull = name && stringToUTF8(info.name, name, bufSize);
-  if (length) HEAP32[length >> 2] = numBytesWrittenExclNull;
-  if (size) HEAP32[size >> 2] = info.size;
-  if (type) HEAP32[type >> 2] = info.type;
+  if (length) HEAP32[length >>> 2] = numBytesWrittenExclNull;
+  if (size) HEAP32[size >>> 2] = info.size;
+  if (type) HEAP32[type >>> 2] = info.type;
  }
 }
 
@@ -11525,9 +11537,9 @@ function _glGetActiveUniformBlockName(program, uniformBlockIndex, bufSize, lengt
  if (!result) return;
  if (uniformBlockName && bufSize > 0) {
   var numBytesWrittenExclNull = stringToUTF8(result, uniformBlockName, bufSize);
-  if (length) HEAP32[length >> 2] = numBytesWrittenExclNull;
+  if (length) HEAP32[length >>> 2] = numBytesWrittenExclNull;
  } else {
-  if (length) HEAP32[length >> 2] = 0;
+  if (length) HEAP32[length >>> 2] = 0;
  }
 }
 
@@ -11539,17 +11551,17 @@ function _glGetActiveUniformBlockiv(program, uniformBlockIndex, pname, params) {
  program = GL.programs[program];
  if (pname == 35393) {
   var name = GLctx["getActiveUniformBlockName"](program, uniformBlockIndex);
-  HEAP32[params >> 2] = name.length + 1;
+  HEAP32[params >>> 2] = name.length + 1;
   return;
  }
  var result = GLctx["getActiveUniformBlockParameter"](program, uniformBlockIndex, pname);
  if (result === null) return;
  if (pname == 35395) {
   for (var i = 0; i < result.length; i++) {
-   HEAP32[params + i * 4 >> 2] = result[i];
+   HEAP32[params + i * 4 >>> 2] = result[i];
   }
  } else {
-  HEAP32[params >> 2] = result;
+  HEAP32[params >>> 2] = result;
  }
 }
 
@@ -11565,13 +11577,13 @@ function _glGetActiveUniformsiv(program, uniformCount, uniformIndices, pname, pa
  program = GL.programs[program];
  var ids = [];
  for (var i = 0; i < uniformCount; i++) {
-  ids.push(HEAP32[uniformIndices + i * 4 >> 2]);
+  ids.push(HEAP32[uniformIndices + i * 4 >>> 2]);
  }
  var result = GLctx["getActiveUniforms"](program, ids, pname);
  if (!result) return;
  var len = result.length;
  for (var i = 0; i < len; i++) {
-  HEAP32[params + i * 4 >> 2] = result[i];
+  HEAP32[params + i * 4 >>> 2] = result[i];
  }
 }
 
@@ -11590,22 +11602,22 @@ function _glGetFramebufferAttachmentParameteriv(target, attachment, pname, param
  if (result instanceof WebGLRenderbuffer || result instanceof WebGLTexture) {
   result = result.name | 0;
  }
- HEAP32[params >> 2] = result;
+ HEAP32[params >>> 2] = result;
 }
 
 function readI53FromI64(ptr) {
- return HEAPU32[ptr >> 2] + HEAP32[ptr + 4 >> 2] * 4294967296;
+ return HEAPU32[ptr >>> 2] + HEAP32[ptr + 4 >>> 2] * 4294967296;
 }
 
 function readI53FromU64(ptr) {
- return HEAPU32[ptr >> 2] + HEAPU32[ptr + 4 >> 2] * 4294967296;
+ return HEAPU32[ptr >>> 2] + HEAPU32[ptr + 4 >>> 2] * 4294967296;
 }
 
 function writeI53ToI64(ptr, num) {
- HEAPU32[ptr >> 2] = num;
- HEAPU32[ptr + 4 >> 2] = (num - HEAPU32[ptr >> 2]) / 4294967296;
+ HEAPU32[ptr >>> 2] = num;
+ HEAPU32[ptr + 4 >>> 2] = (num - HEAPU32[ptr >>> 2]) / 4294967296;
  var deserialized = num >= 0 ? readI53FromU64(ptr) : readI53FromI64(ptr);
- if (deserialized != num) warnOnce("writeI53ToI64() out of range: serialized JS Number " + num + " to Wasm heap as bytes lo=0x" + HEAPU32[ptr >> 2].toString(16) + ", hi=0x" + HEAPU32[ptr + 4 >> 2].toString(16) + ", which deserializes back to " + deserialized + " instead!");
+ if (deserialized != num) warnOnce("writeI53ToI64() out of range: serialized JS Number " + num + " to Wasm heap as bytes lo=0x" + HEAPU32[ptr >>> 2].toString(16) + ", hi=0x" + HEAPU32[ptr + 4 >>> 2].toString(16) + ", which deserializes back to " + deserialized + " instead!");
 }
 
 function emscriptenWebGLGetIndexed(target, index, data, type) {
@@ -11656,15 +11668,15 @@ function emscriptenWebGLGetIndexed(target, index, data, type) {
   break;
 
  case 0:
-  HEAP32[data >> 2] = ret;
+  HEAP32[data >>> 2] = ret;
   break;
 
  case 2:
-  HEAPF32[data >> 2] = ret;
+  HEAPF32[data >>> 2] = ret;
   break;
 
  case 4:
-  HEAP8[data >> 0] = ret ? 1 : 0;
+  HEAP8[data >>> 0] = ret ? 1 : 0;
   break;
 
  default:
@@ -11777,15 +11789,15 @@ function emscriptenWebGLGet(name_, p, type) {
     for (var i = 0; i < result.length; ++i) {
      switch (type) {
      case 0:
-      HEAP32[p + i * 4 >> 2] = result[i];
+      HEAP32[p + i * 4 >>> 2] = result[i];
       break;
 
      case 2:
-      HEAPF32[p + i * 4 >> 2] = result[i];
+      HEAPF32[p + i * 4 >>> 2] = result[i];
       break;
 
      case 4:
-      HEAP8[p + i >> 0] = result[i] ? 1 : 0;
+      HEAP8[p + i >>> 0] = result[i] ? 1 : 0;
       break;
      }
     }
@@ -11813,15 +11825,15 @@ function emscriptenWebGLGet(name_, p, type) {
   break;
 
  case 0:
-  HEAP32[p >> 2] = ret;
+  HEAP32[p >>> 2] = ret;
   break;
 
  case 2:
-  HEAPF32[p >> 2] = ret;
+  HEAPF32[p >>> 2] = ret;
   break;
 
  case 4:
-  HEAP8[p >> 0] = ret ? 1 : 0;
+  HEAP8[p >>> 0] = ret ? 1 : 0;
   break;
  }
 }
@@ -11842,7 +11854,7 @@ function _glGetInternalformativ(target, internalformat, pname, bufSize, params) 
  var ret = GLctx["getInternalformatParameter"](target, internalformat, pname);
  if (ret === null) return;
  for (var i = 0; i < ret.length && i < bufSize; ++i) {
-  HEAP32[params + i >> 2] = ret[i];
+  HEAP32[params + i >>> 2] = ret[i];
  }
 }
 
@@ -11854,7 +11866,7 @@ function _glGetProgramInfoLog(program, maxLength, length, infoLog) {
  var log = GLctx.getProgramInfoLog(GL.programs[program]);
  if (log === null) log = "(unknown error)";
  var numBytesWrittenExclNull = maxLength > 0 && infoLog ? stringToUTF8(log, infoLog, maxLength) : 0;
- if (length) HEAP32[length >> 2] = numBytesWrittenExclNull;
+ if (length) HEAP32[length >>> 2] = numBytesWrittenExclNull;
 }
 
 function _glGetProgramiv(program, pname, p) {
@@ -11870,30 +11882,30 @@ function _glGetProgramiv(program, pname, p) {
  if (pname == 35716) {
   var log = GLctx.getProgramInfoLog(program);
   if (log === null) log = "(unknown error)";
-  HEAP32[p >> 2] = log.length + 1;
+  HEAP32[p >>> 2] = log.length + 1;
  } else if (pname == 35719) {
   if (!program.maxUniformLength) {
    for (var i = 0; i < GLctx.getProgramParameter(program, 35718); ++i) {
     program.maxUniformLength = Math.max(program.maxUniformLength, GLctx.getActiveUniform(program, i).name.length + 1);
    }
   }
-  HEAP32[p >> 2] = program.maxUniformLength;
+  HEAP32[p >>> 2] = program.maxUniformLength;
  } else if (pname == 35722) {
   if (!program.maxAttributeLength) {
    for (var i = 0; i < GLctx.getProgramParameter(program, 35721); ++i) {
     program.maxAttributeLength = Math.max(program.maxAttributeLength, GLctx.getActiveAttrib(program, i).name.length + 1);
    }
   }
-  HEAP32[p >> 2] = program.maxAttributeLength;
+  HEAP32[p >>> 2] = program.maxAttributeLength;
  } else if (pname == 35381) {
   if (!program.maxUniformBlockNameLength) {
    for (var i = 0; i < GLctx.getProgramParameter(program, 35382); ++i) {
     program.maxUniformBlockNameLength = Math.max(program.maxUniformBlockNameLength, GLctx.getActiveUniformBlockName(program, i).length + 1);
    }
   }
-  HEAP32[p >> 2] = program.maxUniformBlockNameLength;
+  HEAP32[p >>> 2] = program.maxUniformBlockNameLength;
  } else {
-  HEAP32[p >> 2] = GLctx.getProgramParameter(program, pname);
+  HEAP32[p >>> 2] = GLctx.getProgramParameter(program, pname);
  }
 }
 
@@ -11910,7 +11922,7 @@ function _glGetQueryObjectuiv(id, pname, params) {
  } else {
   ret = param;
  }
- HEAP32[params >> 2] = ret;
+ HEAP32[params >>> 2] = ret;
 }
 
 function _glGetQueryiv(target, pname, params) {
@@ -11918,7 +11930,7 @@ function _glGetQueryiv(target, pname, params) {
   GL.recordError(1281);
   return;
  }
- HEAP32[params >> 2] = GLctx["getQuery"](target, pname);
+ HEAP32[params >>> 2] = GLctx["getQuery"](target, pname);
 }
 
 function _glGetRenderbufferParameteriv(target, pname, params) {
@@ -11926,28 +11938,28 @@ function _glGetRenderbufferParameteriv(target, pname, params) {
   GL.recordError(1281);
   return;
  }
- HEAP32[params >> 2] = GLctx.getRenderbufferParameter(target, pname);
+ HEAP32[params >>> 2] = GLctx.getRenderbufferParameter(target, pname);
 }
 
 function _glGetShaderInfoLog(shader, maxLength, length, infoLog) {
  var log = GLctx.getShaderInfoLog(GL.shaders[shader]);
  if (log === null) log = "(unknown error)";
  var numBytesWrittenExclNull = maxLength > 0 && infoLog ? stringToUTF8(log, infoLog, maxLength) : 0;
- if (length) HEAP32[length >> 2] = numBytesWrittenExclNull;
+ if (length) HEAP32[length >>> 2] = numBytesWrittenExclNull;
 }
 
 function _glGetShaderPrecisionFormat(shaderType, precisionType, range, precision) {
  var result = GLctx.getShaderPrecisionFormat(shaderType, precisionType);
- HEAP32[range >> 2] = result.rangeMin;
- HEAP32[range + 4 >> 2] = result.rangeMax;
- HEAP32[precision >> 2] = result.precision;
+ HEAP32[range >>> 2] = result.rangeMin;
+ HEAP32[range + 4 >>> 2] = result.rangeMax;
+ HEAP32[precision >>> 2] = result.precision;
 }
 
 function _glGetShaderSource(shader, bufSize, length, source) {
  var result = GLctx.getShaderSource(GL.shaders[shader]);
  if (!result) return;
  var numBytesWrittenExclNull = bufSize > 0 && source ? stringToUTF8(result, source, bufSize) : 0;
- if (length) HEAP32[length >> 2] = numBytesWrittenExclNull;
+ if (length) HEAP32[length >>> 2] = numBytesWrittenExclNull;
 }
 
 function _glGetShaderiv(shader, pname, p) {
@@ -11959,13 +11971,13 @@ function _glGetShaderiv(shader, pname, p) {
   var log = GLctx.getShaderInfoLog(GL.shaders[shader]);
   if (log === null) log = "(unknown error)";
   var logLength = log ? log.length + 1 : 0;
-  HEAP32[p >> 2] = logLength;
+  HEAP32[p >>> 2] = logLength;
  } else if (pname == 35720) {
   var source = GLctx.getShaderSource(GL.shaders[shader]);
   var sourceLength = source ? source.length + 1 : 0;
-  HEAP32[p >> 2] = sourceLength;
+  HEAP32[p >>> 2] = sourceLength;
  } else {
-  HEAP32[p >> 2] = GLctx.getShaderParameter(GL.shaders[shader], pname);
+  HEAP32[p >>> 2] = GLctx.getShaderParameter(GL.shaders[shader], pname);
  }
 }
 
@@ -12059,7 +12071,7 @@ function _glGetTexParameteriv(target, pname, params) {
   GL.recordError(1281);
   return;
  }
- HEAP32[params >> 2] = GLctx.getTexParameter(target, pname);
+ HEAP32[params >>> 2] = GLctx.getTexParameter(target, pname);
 }
 
 function _glGetUniformBlockIndex(program, uniformBlockName) {
@@ -12077,12 +12089,12 @@ function _glGetUniformIndices(program, uniformCount, uniformNames, uniformIndice
  }
  program = GL.programs[program];
  var names = [];
- for (var i = 0; i < uniformCount; i++) names.push(UTF8ToString(HEAP32[uniformNames + i * 4 >> 2]));
+ for (var i = 0; i < uniformCount; i++) names.push(UTF8ToString(HEAP32[uniformNames + i * 4 >>> 2]));
  var result = GLctx["getUniformIndices"](program, names);
  if (!result) return;
  var len = result.length;
  for (var i = 0; i < len; i++) {
-  HEAP32[uniformIndices + i * 4 >> 2] = result[i];
+  HEAP32[uniformIndices + i * 4 >>> 2] = result[i];
  }
 }
 
@@ -12156,22 +12168,22 @@ function emscriptenWebGLGetUniform(program, location, params, type) {
  if (typeof data == "number" || typeof data == "boolean") {
   switch (type) {
   case 0:
-   HEAP32[params >> 2] = data;
+   HEAP32[params >>> 2] = data;
    break;
 
   case 2:
-   HEAPF32[params >> 2] = data;
+   HEAPF32[params >>> 2] = data;
    break;
   }
  } else {
   for (var i = 0; i < data.length; i++) {
    switch (type) {
    case 0:
-    HEAP32[params + i * 4 >> 2] = data[i];
+    HEAP32[params + i * 4 >>> 2] = data[i];
     break;
 
    case 2:
-    HEAPF32[params + i * 4 >> 2] = data[i];
+    HEAPF32[params + i * 4 >>> 2] = data[i];
     break;
    }
   }
@@ -12192,34 +12204,34 @@ function emscriptenWebGLGetVertexAttrib(index, pname, params, type) {
  }
  var data = GLctx.getVertexAttrib(index, pname);
  if (pname == 34975) {
-  HEAP32[params >> 2] = data && data["name"];
+  HEAP32[params >>> 2] = data && data["name"];
  } else if (typeof data == "number" || typeof data == "boolean") {
   switch (type) {
   case 0:
-   HEAP32[params >> 2] = data;
+   HEAP32[params >>> 2] = data;
    break;
 
   case 2:
-   HEAPF32[params >> 2] = data;
+   HEAPF32[params >>> 2] = data;
    break;
 
   case 5:
-   HEAP32[params >> 2] = Math.fround(data);
+   HEAP32[params >>> 2] = Math.fround(data);
    break;
   }
  } else {
   for (var i = 0; i < data.length; i++) {
    switch (type) {
    case 0:
-    HEAP32[params + i * 4 >> 2] = data[i];
+    HEAP32[params + i * 4 >>> 2] = data[i];
     break;
 
    case 2:
-    HEAPF32[params + i * 4 >> 2] = data[i];
+    HEAPF32[params + i * 4 >>> 2] = data[i];
     break;
 
    case 5:
-    HEAP32[params + i * 4 >> 2] = Math.fround(data[i]);
+    HEAP32[params + i * 4 >>> 2] = Math.fround(data[i]);
     break;
    }
   }
@@ -12233,7 +12245,7 @@ function _glGetVertexAttribiv(index, pname, params) {
 function _glInvalidateFramebuffer(target, numAttachments, attachments) {
  var list = tempFixedLengthArray[numAttachments];
  for (var i = 0; i < numAttachments; i++) {
-  list[i] = HEAP32[attachments + i * 4 >> 2];
+  list[i] = HEAP32[attachments + i * 4 >>> 2];
  }
  GLctx["invalidateFramebuffer"](target, list);
 }
@@ -12363,7 +12375,7 @@ function emscriptenWebGLGetTexPixelData(type, format, width, height, pixels, int
  var byteSize = 1 << shift;
  var sizePerPixel = __colorChannelsInGlTextureFormat(format) * byteSize;
  var bytes = computeUnpackAlignedImageSize(width, height, sizePerPixel, GL.unpackAlignment);
- return heap.subarray(pixels >> shift, pixels + bytes >> shift);
+ return heap.subarray(pixels >>> shift, pixels + bytes >>> shift);
 }
 
 function _glReadPixels(x, y, width, height, format, type, pixels) {
@@ -12793,7 +12805,7 @@ function _glTexParameteri(x0, x1, x2) {
 }
 
 function _glTexParameteriv(target, pname, params) {
- var param = HEAP32[params >> 2];
+ var param = HEAP32[params >>> 2];
  GLctx.texParameteri(target, pname, param);
 }
 
@@ -12843,10 +12855,10 @@ function _glUniform1fv(location, count, value) {
  if (count <= 288) {
   var view = miniTempWebGLFloatBuffers[count - 1];
   for (var i = 0; i < count; ++i) {
-   view[i] = HEAPF32[value + 4 * i >> 2];
+   view[i] = HEAPF32[value + 4 * i >>> 2];
   }
  } else {
-  var view = HEAPF32.subarray(value >> 2, value + count * 4 >> 2);
+  var view = HEAPF32.subarray(value >>> 2, value + count * 4 >>> 2);
  }
  GLctx.uniform1fv(webglGetUniformLocation(location), view);
 }
@@ -12865,10 +12877,10 @@ function _glUniform1iv(location, count, value) {
  if (count <= 288) {
   var view = __miniTempWebGLIntBuffers[count - 1];
   for (var i = 0; i < count; ++i) {
-   view[i] = HEAP32[value + 4 * i >> 2];
+   view[i] = HEAP32[value + 4 * i >>> 2];
   }
  } else {
-  var view = HEAP32.subarray(value >> 2, value + count * 4 >> 2);
+  var view = HEAP32.subarray(value >>> 2, value + count * 4 >>> 2);
  }
  GLctx.uniform1iv(webglGetUniformLocation(location), view);
 }
@@ -12885,11 +12897,11 @@ function _glUniform2fv(location, count, value) {
  if (count <= 144) {
   var view = miniTempWebGLFloatBuffers[2 * count - 1];
   for (var i = 0; i < 2 * count; i += 2) {
-   view[i] = HEAPF32[value + 4 * i >> 2];
-   view[i + 1] = HEAPF32[value + (4 * i + 4) >> 2];
+   view[i] = HEAPF32[value + 4 * i >>> 2];
+   view[i + 1] = HEAPF32[value + (4 * i + 4) >>> 2];
   }
  } else {
-  var view = HEAPF32.subarray(value >> 2, value + count * 8 >> 2);
+  var view = HEAPF32.subarray(value >>> 2, value + count * 8 >>> 2);
  }
  GLctx.uniform2fv(webglGetUniformLocation(location), view);
 }
@@ -12902,11 +12914,11 @@ function _glUniform2iv(location, count, value) {
  if (count <= 144) {
   var view = __miniTempWebGLIntBuffers[2 * count - 1];
   for (var i = 0; i < 2 * count; i += 2) {
-   view[i] = HEAP32[value + 4 * i >> 2];
-   view[i + 1] = HEAP32[value + (4 * i + 4) >> 2];
+   view[i] = HEAP32[value + 4 * i >>> 2];
+   view[i + 1] = HEAP32[value + (4 * i + 4) >>> 2];
   }
  } else {
-  var view = HEAP32.subarray(value >> 2, value + count * 8 >> 2);
+  var view = HEAP32.subarray(value >>> 2, value + count * 8 >>> 2);
  }
  GLctx.uniform2iv(webglGetUniformLocation(location), view);
 }
@@ -12923,12 +12935,12 @@ function _glUniform3fv(location, count, value) {
  if (count <= 96) {
   var view = miniTempWebGLFloatBuffers[3 * count - 1];
   for (var i = 0; i < 3 * count; i += 3) {
-   view[i] = HEAPF32[value + 4 * i >> 2];
-   view[i + 1] = HEAPF32[value + (4 * i + 4) >> 2];
-   view[i + 2] = HEAPF32[value + (4 * i + 8) >> 2];
+   view[i] = HEAPF32[value + 4 * i >>> 2];
+   view[i + 1] = HEAPF32[value + (4 * i + 4) >>> 2];
+   view[i + 2] = HEAPF32[value + (4 * i + 8) >>> 2];
   }
  } else {
-  var view = HEAPF32.subarray(value >> 2, value + count * 12 >> 2);
+  var view = HEAPF32.subarray(value >>> 2, value + count * 12 >>> 2);
  }
  GLctx.uniform3fv(webglGetUniformLocation(location), view);
 }
@@ -12941,12 +12953,12 @@ function _glUniform3iv(location, count, value) {
  if (count <= 96) {
   var view = __miniTempWebGLIntBuffers[3 * count - 1];
   for (var i = 0; i < 3 * count; i += 3) {
-   view[i] = HEAP32[value + 4 * i >> 2];
-   view[i + 1] = HEAP32[value + (4 * i + 4) >> 2];
-   view[i + 2] = HEAP32[value + (4 * i + 8) >> 2];
+   view[i] = HEAP32[value + 4 * i >>> 2];
+   view[i + 1] = HEAP32[value + (4 * i + 4) >>> 2];
+   view[i + 2] = HEAP32[value + (4 * i + 8) >>> 2];
   }
  } else {
-  var view = HEAP32.subarray(value >> 2, value + count * 12 >> 2);
+  var view = HEAP32.subarray(value >>> 2, value + count * 12 >>> 2);
  }
  GLctx.uniform3iv(webglGetUniformLocation(location), view);
 }
@@ -12966,13 +12978,13 @@ function _glUniform4fv(location, count, value) {
   value >>= 2;
   for (var i = 0; i < 4 * count; i += 4) {
    var dst = value + i;
-   view[i] = heap[dst];
-   view[i + 1] = heap[dst + 1];
-   view[i + 2] = heap[dst + 2];
-   view[i + 3] = heap[dst + 3];
+   view[i] = heap[dst >>> 0];
+   view[i + 1] = heap[dst + 1 >>> 0];
+   view[i + 2] = heap[dst + 2 >>> 0];
+   view[i + 3] = heap[dst + 3 >>> 0];
   }
  } else {
-  var view = HEAPF32.subarray(value >> 2, value + count * 16 >> 2);
+  var view = HEAPF32.subarray(value >>> 2, value + count * 16 >>> 2);
  }
  GLctx.uniform4fv(webglGetUniformLocation(location), view);
 }
@@ -12985,13 +12997,13 @@ function _glUniform4iv(location, count, value) {
  if (count <= 72) {
   var view = __miniTempWebGLIntBuffers[4 * count - 1];
   for (var i = 0; i < 4 * count; i += 4) {
-   view[i] = HEAP32[value + 4 * i >> 2];
-   view[i + 1] = HEAP32[value + (4 * i + 4) >> 2];
-   view[i + 2] = HEAP32[value + (4 * i + 8) >> 2];
-   view[i + 3] = HEAP32[value + (4 * i + 12) >> 2];
+   view[i] = HEAP32[value + 4 * i >>> 2];
+   view[i + 1] = HEAP32[value + (4 * i + 4) >>> 2];
+   view[i + 2] = HEAP32[value + (4 * i + 8) >>> 2];
+   view[i + 3] = HEAP32[value + (4 * i + 12) >>> 2];
   }
  } else {
-  var view = HEAP32.subarray(value >> 2, value + count * 16 >> 2);
+  var view = HEAP32.subarray(value >>> 2, value + count * 16 >>> 2);
  }
  GLctx.uniform4iv(webglGetUniformLocation(location), view);
 }
@@ -13013,18 +13025,18 @@ function _glUniformMatrix3fv(location, count, transpose, value) {
  if (count <= 32) {
   var view = miniTempWebGLFloatBuffers[9 * count - 1];
   for (var i = 0; i < 9 * count; i += 9) {
-   view[i] = HEAPF32[value + 4 * i >> 2];
-   view[i + 1] = HEAPF32[value + (4 * i + 4) >> 2];
-   view[i + 2] = HEAPF32[value + (4 * i + 8) >> 2];
-   view[i + 3] = HEAPF32[value + (4 * i + 12) >> 2];
-   view[i + 4] = HEAPF32[value + (4 * i + 16) >> 2];
-   view[i + 5] = HEAPF32[value + (4 * i + 20) >> 2];
-   view[i + 6] = HEAPF32[value + (4 * i + 24) >> 2];
-   view[i + 7] = HEAPF32[value + (4 * i + 28) >> 2];
-   view[i + 8] = HEAPF32[value + (4 * i + 32) >> 2];
+   view[i] = HEAPF32[value + 4 * i >>> 2];
+   view[i + 1] = HEAPF32[value + (4 * i + 4) >>> 2];
+   view[i + 2] = HEAPF32[value + (4 * i + 8) >>> 2];
+   view[i + 3] = HEAPF32[value + (4 * i + 12) >>> 2];
+   view[i + 4] = HEAPF32[value + (4 * i + 16) >>> 2];
+   view[i + 5] = HEAPF32[value + (4 * i + 20) >>> 2];
+   view[i + 6] = HEAPF32[value + (4 * i + 24) >>> 2];
+   view[i + 7] = HEAPF32[value + (4 * i + 28) >>> 2];
+   view[i + 8] = HEAPF32[value + (4 * i + 32) >>> 2];
   }
  } else {
-  var view = HEAPF32.subarray(value >> 2, value + count * 36 >> 2);
+  var view = HEAPF32.subarray(value >>> 2, value + count * 36 >>> 2);
  }
  GLctx.uniformMatrix3fv(webglGetUniformLocation(location), !!transpose, view);
 }
@@ -13040,25 +13052,25 @@ function _glUniformMatrix4fv(location, count, transpose, value) {
   value >>= 2;
   for (var i = 0; i < 16 * count; i += 16) {
    var dst = value + i;
-   view[i] = heap[dst];
-   view[i + 1] = heap[dst + 1];
-   view[i + 2] = heap[dst + 2];
-   view[i + 3] = heap[dst + 3];
-   view[i + 4] = heap[dst + 4];
-   view[i + 5] = heap[dst + 5];
-   view[i + 6] = heap[dst + 6];
-   view[i + 7] = heap[dst + 7];
-   view[i + 8] = heap[dst + 8];
-   view[i + 9] = heap[dst + 9];
-   view[i + 10] = heap[dst + 10];
-   view[i + 11] = heap[dst + 11];
-   view[i + 12] = heap[dst + 12];
-   view[i + 13] = heap[dst + 13];
-   view[i + 14] = heap[dst + 14];
-   view[i + 15] = heap[dst + 15];
+   view[i] = heap[dst >>> 0];
+   view[i + 1] = heap[dst + 1 >>> 0];
+   view[i + 2] = heap[dst + 2 >>> 0];
+   view[i + 3] = heap[dst + 3 >>> 0];
+   view[i + 4] = heap[dst + 4 >>> 0];
+   view[i + 5] = heap[dst + 5 >>> 0];
+   view[i + 6] = heap[dst + 6 >>> 0];
+   view[i + 7] = heap[dst + 7 >>> 0];
+   view[i + 8] = heap[dst + 8 >>> 0];
+   view[i + 9] = heap[dst + 9 >>> 0];
+   view[i + 10] = heap[dst + 10 >>> 0];
+   view[i + 11] = heap[dst + 11 >>> 0];
+   view[i + 12] = heap[dst + 12 >>> 0];
+   view[i + 13] = heap[dst + 13 >>> 0];
+   view[i + 14] = heap[dst + 14 >>> 0];
+   view[i + 15] = heap[dst + 15 >>> 0];
   }
  } else {
-  var view = HEAPF32.subarray(value >> 2, value + count * 64 >> 2);
+  var view = HEAPF32.subarray(value >>> 2, value + count * 64 >>> 2);
  }
  GLctx.uniformMatrix4fv(webglGetUniformLocation(location), !!transpose, view);
 }
@@ -13080,7 +13092,7 @@ function _glUnmapBuffer(target) {
  if (!(mapping.access & 16)) if (GL.currentContext.version >= 2) {
   GLctx.bufferSubData(target, mapping.offset, HEAPU8, mapping.mem, mapping.length);
  } else {
-  GLctx.bufferSubData(target, mapping.offset, HEAPU8.subarray(mapping.mem, mapping.mem + mapping.length));
+  GLctx.bufferSubData(target, mapping.offset, HEAPU8.subarray(mapping.mem >>> 0, mapping.mem + mapping.length >>> 0));
  }
  _free(mapping.mem);
  return 1;
@@ -13125,7 +13137,7 @@ function _glVertexAttrib4f(x0, x1, x2, x3, x4) {
 }
 
 function _glVertexAttrib4fv(index, v) {
- GLctx.vertexAttrib4f(index, HEAPF32[v >> 2], HEAPF32[v + 4 >> 2], HEAPF32[v + 8 >> 2], HEAPF32[v + 12 >> 2]);
+ GLctx.vertexAttrib4f(index, HEAPF32[v >>> 2], HEAPF32[v + 4 >>> 2], HEAPF32[v + 8 >>> 2], HEAPF32[v + 12 >>> 2]);
 }
 
 function _glVertexAttribIPointer(index, size, type, stride, ptr) {
@@ -13174,28 +13186,28 @@ function _llvm_eh_typeid_for(type) {
 
 function _mktime(tmPtr) {
  _tzset();
- var date = new Date(HEAP32[tmPtr + 20 >> 2] + 1900, HEAP32[tmPtr + 16 >> 2], HEAP32[tmPtr + 12 >> 2], HEAP32[tmPtr + 8 >> 2], HEAP32[tmPtr + 4 >> 2], HEAP32[tmPtr >> 2], 0);
- var dst = HEAP32[tmPtr + 32 >> 2];
+ var date = new Date(HEAP32[tmPtr + 20 >>> 2] + 1900, HEAP32[tmPtr + 16 >>> 2], HEAP32[tmPtr + 12 >>> 2], HEAP32[tmPtr + 8 >>> 2], HEAP32[tmPtr + 4 >>> 2], HEAP32[tmPtr >>> 2], 0);
+ var dst = HEAP32[tmPtr + 32 >>> 2];
  var guessedOffset = date.getTimezoneOffset();
  var start = new Date(date.getFullYear(), 0, 1);
  var summerOffset = new Date(date.getFullYear(), 6, 1).getTimezoneOffset();
  var winterOffset = start.getTimezoneOffset();
  var dstOffset = Math.min(winterOffset, summerOffset);
  if (dst < 0) {
-  HEAP32[tmPtr + 32 >> 2] = Number(summerOffset != winterOffset && dstOffset == guessedOffset);
+  HEAP32[tmPtr + 32 >>> 2] = Number(summerOffset != winterOffset && dstOffset == guessedOffset);
  } else if (dst > 0 != (dstOffset == guessedOffset)) {
   var nonDstOffset = Math.max(winterOffset, summerOffset);
   var trueOffset = dst > 0 ? dstOffset : nonDstOffset;
   date.setTime(date.getTime() + (trueOffset - guessedOffset) * 6e4);
  }
- HEAP32[tmPtr + 24 >> 2] = date.getDay();
+ HEAP32[tmPtr + 24 >>> 2] = date.getDay();
  var yday = (date.getTime() - start.getTime()) / (1e3 * 60 * 60 * 24) | 0;
- HEAP32[tmPtr + 28 >> 2] = yday;
- HEAP32[tmPtr >> 2] = date.getSeconds();
- HEAP32[tmPtr + 4 >> 2] = date.getMinutes();
- HEAP32[tmPtr + 8 >> 2] = date.getHours();
- HEAP32[tmPtr + 12 >> 2] = date.getDate();
- HEAP32[tmPtr + 16 >> 2] = date.getMonth();
+ HEAP32[tmPtr + 28 >>> 2] = yday;
+ HEAP32[tmPtr >>> 2] = date.getSeconds();
+ HEAP32[tmPtr + 4 >>> 2] = date.getMinutes();
+ HEAP32[tmPtr + 8 >>> 2] = date.getHours();
+ HEAP32[tmPtr + 12 >>> 2] = date.getDate();
+ HEAP32[tmPtr + 16 >>> 2] = date.getMonth();
  return date.getTime() / 1e3 | 0;
 }
 
@@ -13209,7 +13221,7 @@ function _sigaction(signum, act, oldact) {
 }
 
 function _sigemptyset(set) {
- HEAP32[set >> 2] = 0;
+ HEAP32[set >>> 2] = 0;
  return 0;
 }
 
@@ -13251,18 +13263,18 @@ function __addDays(date, days) {
 }
 
 function _strftime(s, maxsize, format, tm) {
- var tm_zone = HEAP32[tm + 40 >> 2];
+ var tm_zone = HEAP32[tm + 40 >>> 2];
  var date = {
-  tm_sec: HEAP32[tm >> 2],
-  tm_min: HEAP32[tm + 4 >> 2],
-  tm_hour: HEAP32[tm + 8 >> 2],
-  tm_mday: HEAP32[tm + 12 >> 2],
-  tm_mon: HEAP32[tm + 16 >> 2],
-  tm_year: HEAP32[tm + 20 >> 2],
-  tm_wday: HEAP32[tm + 24 >> 2],
-  tm_yday: HEAP32[tm + 28 >> 2],
-  tm_isdst: HEAP32[tm + 32 >> 2],
-  tm_gmtoff: HEAP32[tm + 36 >> 2],
+  tm_sec: HEAP32[tm >>> 2],
+  tm_min: HEAP32[tm + 4 >>> 2],
+  tm_hour: HEAP32[tm + 8 >>> 2],
+  tm_mday: HEAP32[tm + 12 >>> 2],
+  tm_mon: HEAP32[tm + 16 >>> 2],
+  tm_year: HEAP32[tm + 20 >>> 2],
+  tm_wday: HEAP32[tm + 24 >>> 2],
+  tm_yday: HEAP32[tm + 28 >>> 2],
+  tm_isdst: HEAP32[tm + 32 >>> 2],
+  tm_gmtoff: HEAP32[tm + 36 >>> 2],
   tm_zone: tm_zone ? UTF8ToString(tm_zone) : ""
  };
  var pattern = UTF8ToString(format);
@@ -13511,7 +13523,7 @@ function _strftime(s, maxsize, format, tm) {
 function _time(ptr) {
  var ret = Date.now() / 1e3 | 0;
  if (ptr) {
-  HEAP32[ptr >> 2] = ret;
+  HEAP32[ptr >>> 2] = ret;
  }
  return ret;
 }
@@ -13531,7 +13543,7 @@ function setFileTime(path, time) {
 function _utime(path, times) {
  var time;
  if (times) {
-  time = HEAP32[times + 4 >> 2] * 1e3;
+  time = HEAP32[times + 4 >>> 2] * 1e3;
  } else {
   time = Date.now();
  }
@@ -17052,11 +17064,11 @@ function callMain(args) {
  args = args || [];
  var argc = args.length + 1;
  var argv = stackAlloc((argc + 1) * 4);
- HEAP32[argv >> 2] = allocateUTF8OnStack(thisProgram);
+ HEAP32[argv >>> 2] = allocateUTF8OnStack(thisProgram);
  for (var i = 1; i < argc; i++) {
-  HEAP32[(argv >> 2) + i] = allocateUTF8OnStack(args[i - 1]);
+  HEAP32[(argv >> 2) + i >>> 0] = allocateUTF8OnStack(args[i - 1]);
  }
- HEAP32[(argv >> 2) + argc] = 0;
+ HEAP32[(argv >> 2) + argc >>> 0] = 0;
  try {
   var ret = entryFunction(argc, argv);
   exit(ret, true);
